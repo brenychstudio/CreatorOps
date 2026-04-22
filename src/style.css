@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+  /* DEFAULT = DARK (landing/story remain dark by default) */
+  --co-bg: #090c11;
+  --co-surface: rgba(255, 255, 255, 0.04);
+  --co-surface-2: rgba(255, 255, 255, 0.06);
+  --co-border: rgba(255, 255, 255, 0.10);
+  --co-text: rgba(255, 255, 255, 0.92);
+  --co-muted: rgba(255, 255, 255, 0.60);
+  --co-card: #0e121a;
+}
+
+:root[data-theme="light"] {
+  --co-bg: #f6f7f8;
+  --co-surface: rgba(0, 0, 0, 0.04);
+  --co-surface-2: rgba(0, 0, 0, 0.06);
+  --co-border: rgba(0, 0, 0, 0.10);
+  --co-text: rgba(0, 0, 0, 0.88);
+  --co-muted: rgba(0, 0, 0, 0.55);
+  --co-card: #ffffff;
+}
+
+  html[data-theme="dark"] {
+    --co-bg: #0b0f15;
+    --co-text: rgba(255,255,255,0.92);
+    --co-muted: rgba(255,255,255,0.60);
+    --co-border: rgba(255,255,255,0.12);
+    --co-surface: rgba(255,255,255,0.06);
+    --co-surface-2: rgba(255,255,255,0.09);
+  }
+
+  /* smooth theme transitions only when ThemeProvider toggles theme-animate */
+  html.theme-animate body,
+  html.theme-animate * {
+    transition: background-color 420ms ease, color 420ms ease, border-color 420ms ease, box-shadow 420ms ease, opacity 420ms ease;
+  }
+}
+
+@layer utilities {
+  .co-bg { background-color: var(--co-bg); }
+  .co-surface { background-color: var(--co-surface); }
+  .co-surface-2 { background-color: var(--co-surface-2); }
+  .co-text { color: var(--co-text); }
+  .co-muted { color: var(--co-muted); }
+  .co-border { border-color: var(--co-border); }
+}
+
+@layer base {
+  :root {
+    /* DEFAULT = DARK */
+    --co-bg: #090c11;
+
+    /* panels/cards */
+    --co-surface: rgba(255, 255, 255, 0.05);
+    --co-surface-2: rgba(255, 255, 255, 0.085);
+    --co-card: rgba(255, 255, 255, 0.075);
+
+    --co-border: rgba(255, 255, 255, 0.12);
+
+    /* text (less “pure white”) */
+    --co-text: rgba(255, 255, 255, 0.88);
+    --co-muted: rgba(255, 255, 255, 0.56);
+  }
+
+  :root[data-theme="light"] {
+    --co-bg: #f6f7f8;
+
+    /* make panels noticeably lighter (closer to white) */
+    --co-surface: rgba(255, 255, 255, 0.62);
+    --co-surface-2: rgba(255, 255, 255, 0.78);
+    --co-card: rgba(255, 255, 255, 0.86);
+
+    --co-border: rgba(0, 0, 0, 0.08);
+
+    --co-text: rgba(0, 0, 0, 0.86);
+    --co-muted: rgba(0, 0, 0, 0.56);
+  }
+
+  html[data-theme="dark"] {
+    --co-bg: #0b0f15;
+    --co-text: rgba(255, 255, 255, 0.88);
+    --co-muted: rgba(255, 255, 255, 0.56);
+    --co-border: rgba(255, 255, 255, 0.14);
+    --co-surface: rgba(255, 255, 255, 0.075);
+    --co-surface-2: rgba(255, 255, 255, 0.11);
+    --co-card: rgba(255, 255, 255, 0.095);
+  }
+
+  /* smooth theme transitions only when ThemeProvider toggles theme-animate */
+  html.theme-animate body,
+  html.theme-animate * {
+    transition: background-color 420ms ease, color 420ms ease, border-color 420ms ease, box-shadow 420ms ease, opacity 420ms ease;
+  }
+}
+
+
+@layer components {
+  .co-card {
+    border: 1px solid var(--co-border);
+    background: var(--co-card);
+    color: var(--co-text);
+    border-radius: 16px;
+  }
+
+  .co-card-soft {
+    border: 1px solid var(--co-border);
+    background: var(--co-surface);
+    color: var(--co-text);
+    border-radius: 16px;
+  }
+
+  .co-muted { color: var(--co-muted); }
+
+  .co-btn-primary {
+    background: var(--co-text);
+    color: var(--co-bg);
+    border: 1px solid transparent;
+    border-radius: 9999px;
+  }
+
+  .co-btn-ghost {
+    background: transparent;
+    color: var(--co-text);
+    border: 1px solid var(--co-border);
+    border-radius: 9999px;
+  }
+
+  .co-tab {
+    color: var(--co-muted);
+    border: 1px solid var(--co-border);
+    background: transparent;
+    border-radius: 9999px;
+  }
+
+  .co-tab-active {
+    color: var(--co-text);
+    border: 1px solid var(--co-border);
+    background: var(--co-surface);
+    border-radius: 9999px;
+  }
+}
+
+@layer components {
+  .pressable {
+    @apply transition active:translate-y-[1px] active:scale-[0.98];
+  }
+  .reveal {
+    @apply opacity-0 translate-y-2 transition duration-700 ease-out;
+  }
+
+  .reveal-in {
+    @apply opacity-100 translate-y-0;
+  }
+}
+
+@layer utilities {
+  /* Smooth theme switch ONLY inside prototype */
+  html.theme-animate .proto-theme,
+  html.theme-animate .proto-theme * {
+    transition-property: background-color, color, border-color, box-shadow, opacity, filter, backdrop-filter, -webkit-backdrop-filter !important;
+    transition-duration: 780ms !important;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+}
+
+/* src/style.css */
+@layer components {
+  /* Day label on top of photos (always readable) */
+  .co-day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 9999px;
+    font-size: 11px;
+    line-height: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  html[data-theme="dark"] .co-day-chip {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  html[data-theme="light"] .co-day-chip {
+    /* key part: dark chip in light theme so it’s readable on any photo */
+    background: rgba(0, 0, 0, 0.45);
+    color: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(0, 0, 0, 0.18);
+  }
+}
+
+@layer utilities {
+  /* Day chips — make Planner + Captions identical in LIGHT theme */
+  html[data-theme="light"] .proto-theme .co-day-chip,
+  html[data-theme="light"] .proto-theme .co-day-chip *,
+  html[data-theme="light"] .proto-theme .pointer-events-none.absolute.left-2.top-2.rounded-full,
+  html[data-theme="light"] .proto-theme .pointer-events-none.absolute.left-2.top-2.rounded-full * {
+    color: rgba(255, 255, 255, 0.86) !important;
+    -webkit-text-fill-color: currentColor !important; /* прибирає “сіруватість” у WebKit */
+  }
+
+  html[data-theme="light"] .proto-theme .co-day-chip,
+  html[data-theme="light"] .proto-theme .pointer-events-none.absolute.left-2.top-2.rounded-full {
+    background-color: rgba(0, 0, 0, 0.45) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28) !important;
+  }
+}
