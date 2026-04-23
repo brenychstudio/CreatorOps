@@ -45,7 +45,7 @@ export function buildMockAssets(): Asset[] {
   for (let i = 1; i <= 12; i++) {
     assets.push({
       id: `p-${pad2(i)}`,
-      thumbUrl: `/creatorops/thumbs/4x5/thumb-4x5-${pad2(i)}.png`,
+      thumbUrl: `/creatorops/thumbs/4x5/thumb-4x5-${pad2(i)}.jpg`,
       ratio: "4:5",
       status: "ready",
       series: i <= 6 ? "Series A" : "Series B",

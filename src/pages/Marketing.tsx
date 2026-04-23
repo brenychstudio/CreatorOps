@@ -700,15 +700,15 @@ function AutoAdvanceOutputStage({
 
 function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean }) {
   const previewImages = [
-    "/creatorops/thumbs/4x5/thumb-4x5-01.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-02.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-03.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-04.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-05.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-06.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-07.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-08.png",
-    "/creatorops/thumbs/4x5/thumb-4x5-09.png",
+    "/creatorops/thumbs/4x5/thumb-4x5-01.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-02.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-03.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-04.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-05.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-06.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-07.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-08.jpg",
+    "/creatorops/thumbs/4x5/thumb-4x5-09.jpg",
   ];
 
   return (
