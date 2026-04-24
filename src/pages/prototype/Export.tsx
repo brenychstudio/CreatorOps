@@ -111,17 +111,11 @@ export default function Export() {
   const clearUploads = usePrototypeStore((s) => s.clearUploads);
   const clearSelection = usePrototypeStore((s) => s.clearSelection);
 
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isZipping, setIsZipping] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
 
   const [feedbackText, setFeedbackText] = useState("");
   const [diagCopied, setDiagCopied] = useState(false);
-
-  const flashCopied = (key: string) => {
-    setCopiedKey(key);
-    window.setTimeout(() => setCopiedKey(null), 900);
-  };
 
   // Week (Slot A): 7 tiles
   const weekA = useMemo(() => {
@@ -168,25 +162,6 @@ export default function Export() {
     );
   }
 
-
-  const copyAll = async () => {
-    const lines = [
-      captions.variants[0] ? `Caption:\n${captions.variants[0]}` : "",
-      captions.variants[1] ? `\nAlt:\n${captions.variants[1]}` : "",
-      captions.hashtags?.length ? `\nHashtags:\n${captions.hashtags.join(" ")}` : "",
-      ai?.draft ? `\nAI Draft:\n${ai.draft}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    const ok = await safeCopy(lines || "—");
-    if (ok) flashCopied("all");
-  };
-
-  const copyHashtags = async () => {
-    const ok = await safeCopy((captions.hashtags ?? []).join(" "));
-    if (ok) flashCopied("tags");
-  };
 
   const bestMix = useMemo(() => mixes.find((m) => m.id === bestMixId), [mixes, bestMixId]);
 
@@ -643,61 +618,36 @@ export default function Export() {
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">Copy</div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={copyHashtags}
-                  className={[
-                    "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                >
-                  {copiedKey === "tags" ? "Copied" : "Copy tags"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={copyAll}
-                  className={[
-                    "rounded-full bg-[color:var(--co-text)] px-3 py-1.5 text-xs text-[color:var(--co-bg)] hover:opacity-90",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                >
-                  {copiedKey === "all" ? "Copied" : "Copy all"}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              <div className="rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3">
-                <div className="text-[11px] text-[color:var(--co-muted)]">Primary caption</div>
-                <div className="mt-1 whitespace-pre-wrap text-sm text-[color:var(--co-text)]/85">
-                  {captions.variants?.[0] ?? "—"}
+          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-xs text-[color:var(--co-muted)]">Next tool</div>
+                <div className="mt-2 text-sm font-medium text-[color:var(--co-text)]">
+                  Profile ready too?
                 </div>
+                <p className="mt-2 max-w-[34ch] text-[12px] leading-6 text-[color:var(--co-muted)]">
+                  Use Bio Builder to align your avatar, bio, CTA, and profile preview with this
+                  content pack.
+                </p>
               </div>
 
-              <div className="rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3">
-                <div className="text-[11px] text-[color:var(--co-muted)]">Hashtags</div>
-                <div className="mt-1 text-sm text-[color:var(--co-text)]/80">
-                  {(captions.hashtags ?? []).join(" ") || "—"}
-                </div>
-              </div>
-
-              {ai?.draft ? (
-                <div className="rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3">
-                  <div className="text-[11px] text-[color:var(--co-muted)]">AI draft</div>
-                  <div className="mt-1 whitespace-pre-wrap text-sm text-[color:var(--co-text)]/80">
-                    {ai.draft}
-                  </div>
-                </div>
-              ) : null}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/prototype/bio-builder?source=export", {
+                    state: {
+                      source: "export",
+                      useCurrentExportPack: true,
+                    },
+                  })
+                }
+                className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable"
+              >
+                Open Bio Builder
+              </button>
             </div>
           </div>
+
           <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs text-[color:var(--co-muted)]">Feedback</div>
