@@ -199,6 +199,7 @@ export default function BioBuilder() {
   const navigate = useNavigate();
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const gridInputRef = useRef<HTMLInputElement | null>(null);
 
   const assets = usePrototypeStore((s: any) => s.assets ?? []);
   const selectedAssetIds = usePrototypeStore((s: any) => s.selectedAssetIds ?? []);
@@ -210,6 +211,7 @@ export default function BioBuilder() {
   const [variantIndex, setVariantIndex] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState(DEMO_GRID[0]);
   const [avatarObjectUrl, setAvatarObjectUrl] = useState<string | null>(null);
+  const [uploadedGridUrls, setUploadedGridUrls] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const captionPreview = useMemo(() => {
@@ -275,23 +277,36 @@ export default function BioBuilder() {
       .slice(0, 9) as string[];
   }, [exportGridIds, getAssetById]);
 
-  const usingExportPack = openedFromExport && exportGridUrls.length > 0;
+  const usingUploadedGrid = uploadedGridUrls.length > 0;
+  const usingExportPack = openedFromExport && exportGridUrls.length > 0 && !usingUploadedGrid;
 
   const profileGrid = useMemo(() => {
-    if (!usingExportPack) return DEMO_GRID;
+    if (usingUploadedGrid) {
+      return [...uploadedGridUrls, ...DEMO_GRID].slice(0, 9);
+    }
 
-    return [...exportGridUrls, ...DEMO_GRID].slice(0, 9);
-  }, [exportGridUrls, usingExportPack]);
+    if (usingExportPack) {
+      return [...exportGridUrls, ...DEMO_GRID].slice(0, 9);
+    }
+
+    return DEMO_GRID;
+  }, [exportGridUrls, uploadedGridUrls, usingExportPack, usingUploadedGrid]);
 
   const defaultAvatarUrl = profileGrid[0] ?? DEMO_GRID[0];
+  const gridModeLabel = usingUploadedGrid ? "Uploaded grid" : usingExportPack ? "Export pack" : "Sample grid";
+  const gridModeDescription = usingUploadedGrid
+    ? "Using images uploaded directly into Bio Builder for this preview."
+    : usingExportPack
+      ? "Using the current 3x3 export pack from CreatorOps."
+      : "Using sample visuals. Upload 6-9 images or build a CreatorOps pack for a real preview.";
 
   const variants = useMemo(() => buildBioVariants(form), [form]);
   const activeVariant = variants[variantIndex] ?? variants[0];
 
   const postsCount = useMemo(() => {
-    if (usingExportPack) return profileGrid.length;
+    if (usingUploadedGrid || usingExportPack) return profileGrid.length;
     return Math.max(selectedAssetIds.length || 0, 18);
-  }, [profileGrid.length, selectedAssetIds.length, usingExportPack]);
+  }, [profileGrid.length, selectedAssetIds.length, usingExportPack, usingUploadedGrid]);
 
   const highlights = useMemo(
     () => [
@@ -324,13 +339,19 @@ export default function BioBuilder() {
   }, [avatarObjectUrl]);
 
   useEffect(() => {
-    if (!usingExportPack) return;
+    return () => {
+      uploadedGridUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [uploadedGridUrls]);
+
+  useEffect(() => {
+    if (!usingExportPack && !usingUploadedGrid) return;
     if (avatarObjectUrl) return;
-    if (avatarUrl !== DEMO_GRID[0]) return;
     if (!defaultAvatarUrl || defaultAvatarUrl === DEMO_GRID[0]) return;
+    if (avatarUrl === defaultAvatarUrl) return;
 
     setAvatarUrl(defaultAvatarUrl);
-  }, [avatarObjectUrl, avatarUrl, defaultAvatarUrl, usingExportPack]);
+  }, [avatarObjectUrl, avatarUrl, defaultAvatarUrl, usingExportPack, usingUploadedGrid]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -350,13 +371,46 @@ export default function BioBuilder() {
     setAvatarUrl(nextUrl);
   };
 
+  const onGridSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? [])
+      .filter((file) => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024)
+      .slice(0, 9);
+
+    if (!files.length) return;
+
+    const nextUrls = files.map((file) => URL.createObjectURL(file));
+
+    setUploadedGridUrls(nextUrls);
+
+    if (!avatarObjectUrl && avatarUrl === DEMO_GRID[0] && nextUrls[0]) {
+      setAvatarUrl(nextUrls[0]);
+    }
+
+    if (gridInputRef.current) {
+      gridInputRef.current.value = "";
+    }
+  };
+
+  const clearUploadedGrid = () => {
+    setUploadedGridUrls([]);
+
+    if (!avatarObjectUrl) {
+      setAvatarUrl(usingExportPack ? defaultAvatarUrl : DEMO_GRID[0]);
+    }
+
+    if (gridInputRef.current) {
+      gridInputRef.current.value = "";
+    }
+  };
+
   const onReset = () => {
     if (avatarObjectUrl) {
       URL.revokeObjectURL(avatarObjectUrl);
     }
 
     setAvatarObjectUrl(null);
-    setAvatarUrl(defaultAvatarUrl);
+    setUploadedGridUrls([]);
+    setAvatarUrl(usingExportPack ? defaultAvatarUrl : DEMO_GRID[0]);
     setForm(INITIAL_FORM);
     setVariantIndex(0);
     setShowAdvanced(false);
@@ -681,7 +735,7 @@ export default function BioBuilder() {
             </div>
 
             <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-              {usingExportPack ? "Export pack" : "Live"}
+              {gridModeLabel}
             </div>
           </div>
 
@@ -788,14 +842,78 @@ export default function BioBuilder() {
               </div>
             </div>
           </div>
-
           <div className="mt-4 text-[12px] leading-6 text-[color:var(--co-muted)]">
-            {usingExportPack
-              ? "Using the current 3×3 export pack from CreatorOps. Adjust the profile text, then download the bio pack."
-              : "Standalone mode. Fill the fields manually or use CreatorOps context when available."}
+            {usingUploadedGrid
+              ? "Using the uploaded grid for this standalone profile preview."
+              : usingExportPack
+                ? "Using the current 3x3 export pack from CreatorOps. Adjust the profile text, then download the bio pack."
+                : "Standalone mode. Sample visuals are shown until you upload a grid or build a CreatorOps pack."}
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--co-muted)]">
+                    Profile grid
+                  </div>
+
+                  <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-[10px] text-[color:var(--co-muted)]">
+                    {gridModeLabel}
+                  </div>
+                </div>
+
+                <div className="mt-1 max-w-[42ch] truncate text-[12px] leading-5 text-[color:var(--co-text)]/68">
+                  {usingUploadedGrid
+                    ? "Uploaded images are driving this preview."
+                    : usingExportPack
+                      ? "Connected to the current CreatorOps export pack."
+                      : "Sample visuals are shown until you upload or build a pack."}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => gridInputRef.current?.click()}
+                  className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-[12px] text-[color:var(--co-text)] hover:opacity-90 pressable"
+                >
+                  Upload grid
+                </button>
+
+                {usingUploadedGrid ? (
+                  <button
+                    type="button"
+                    onClick={clearUploadedGrid}
+                    className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+                  >
+                    Clear
+                  </button>
+                ) : !usingExportPack ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/prototype/library")}
+                    className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+                  >
+                    Build pack
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <input
+              ref={gridInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              className="hidden"
+              onChange={onGridSelect}
+            />
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+
