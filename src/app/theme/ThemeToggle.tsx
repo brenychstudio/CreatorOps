@@ -5,7 +5,7 @@ export default function ThemeToggle({ className = "" }: { className?: string }) 
   const { theme, setTheme } = useTheme();
 
   const base =
-    "inline-flex items-center gap-1 rounded-full border px-1 py-1 backdrop-blur shadow-sm";
+    "items-center gap-1 rounded-full border px-1 py-1 backdrop-blur shadow-sm";
   const shell =
     theme === "dark" ? "bg-black/35 border-white/10" : "bg-white/70 border-black/10";
 

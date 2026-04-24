@@ -60,8 +60,8 @@ const regenerateMixes = usePrototypeStore((s) => s.regenerateMixes);
   };
 
   return (
-    <div className="space-y-4 text-[color:var(--co-text)]">
-      <div className="flex items-start justify-between gap-3">
+    <div className="min-w-0 space-y-4 text-[color:var(--co-text)]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-base text-[color:var(--co-text)]">Smart Mix</div>
           <div className="mt-1 text-sm text-[color:var(--co-muted)]">
@@ -69,7 +69,7 @@ const regenerateMixes = usePrototypeStore((s) => s.regenerateMixes);
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button
             onClick={() => void regenerateMixes()}
             className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable
@@ -81,7 +81,7 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
           <button
             type="button"
             onClick={() => nav("/prototype/sequence")}
-            className="rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable
+            className="flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable sm:flex-none
 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
           >
             Continue
@@ -89,17 +89,17 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
         {mixes.map((mix) => {
           const isBest = mix.id === bestMixId;
 
           return (
             <div
               key={mix.id}
-              className="rounded-3xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm"
+              className="min-w-0 rounded-3xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 shadow-sm sm:p-4"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <div className="text-xs text-[color:var(--co-muted)]">Score</div>
                   <SoftScoreDots scoreDots={mix.scoreDots} />
 

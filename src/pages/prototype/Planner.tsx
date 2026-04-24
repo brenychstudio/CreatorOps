@@ -326,9 +326,9 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
   }
 
   return (
-    <div className="space-y-4 text-[color:var(--co-text)]">
+    <div className="min-w-0 space-y-4 text-[color:var(--co-text)]">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-base text-[color:var(--co-text)]">Planner</div>
           <div className="mt-1 text-sm text-[color:var(--co-muted)]">
@@ -336,12 +336,12 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button
             type="button"
             onClick={() => navigate("/prototype/sequence")}
             className={[
-              "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90",
+              "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               pressable,
             ].join(" ")}
@@ -353,7 +353,7 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
             type="button"
             onClick={() => navigate("/prototype/captions")}
             className={[
-              "rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90",
+              "flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               pressable,
             ].join(" ")}
@@ -365,7 +365,7 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
 
       {/* 3×3 grid: 7 week slots + 2 Next slots (droppable) */}
       <div className="mx-auto w-full max-w-[680px]">
-        <div className="grid grid-cols-3 gap-[12px]">
+        <div className="grid grid-cols-3 gap-2 sm:gap-[12px]">
           {Array.from({ length: 7 }).map((_, dayIndex) => (
             <div key={dayIndex}>
               <TileFrame

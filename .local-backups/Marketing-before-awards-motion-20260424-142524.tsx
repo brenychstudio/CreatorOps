@@ -17,7 +17,7 @@ import { useTheme } from "../app/theme/useTheme";
 
 const MODULES = [
   { title: "Library", desc: "Collect and pick your strongest assets." },
-  { title: "Smart Mix", desc: "Auto-curated 3x3 candidates with guardrails." },
+  { title: "Smart Mix", desc: "Auto-curated 3Г—3 candidates with guardrails." },
   { title: "Sequence", desc: "Turn the best mix into a weekly plan." },
   { title: "Planner", desc: "Drag & drop slots. Stay flexible." },
   { title: "Captions", desc: "Generate copy + hashtags per post." },
@@ -25,7 +25,7 @@ const MODULES = [
 ];
 
 const BENEFITS = [
-  { title: "Less decisions", desc: "The system proposes - you approve." },
+  { title: "Less decisions", desc: "The system proposes вЂ” you approve." },
   { title: "No repeats", desc: "Basic anti-pattern guardrails in the mix." },
   { title: "Publish-ready output", desc: "Captions + hashtags in one export pack." },
 ];
@@ -327,7 +327,7 @@ const OUTPUT_SLIDES: Array<{
     key: "export",
     label: "Export pack",
     title: "A bundle you can ship today.",
-    desc: "Captions + hashtags + week context - clean handoff, zero integrations.",
+    desc: "Captions + hashtags + week context вЂ” clean handoff, zero integrations.",
   },
   {
     key: "guardrails",
@@ -339,7 +339,7 @@ const OUTPUT_SLIDES: Array<{
     key: "week",
     label: "Week plan",
     title: "A clear 7-day context.",
-    desc: "See the sequence as a week - then export a publish-ready pack.",
+    desc: "See the sequence as a week вЂ” then export a publish-ready pack.",
   },
 ];
 
@@ -357,7 +357,7 @@ function SlideExport() {
       <div className="text-xs uppercase tracking-wide text-black/45">Export pack</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-black">creatorops-export-pack.zip</div>
       <div className="mt-2 max-w-[56ch] text-sm text-black/55">
-        One deliverable: captions, hashtags, week plan, checklist - ready to publish.
+        One deliverable: captions, hashtags, week plan, checklist вЂ” ready to publish.
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -408,7 +408,7 @@ function SlideGuardrails() {
       <div className="text-xs uppercase tracking-wide text-black/45">Guardrails</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-black">Upstream rules. Downstream calm.</div>
       <div className="mt-2 max-w-[56ch] text-sm text-black/55">
-        The mix is proposed with simple constraints - so you don't fight repeats later.
+        The mix is proposed with simple constraints вЂ” so you donвЂ™t fight repeats later.
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -433,7 +433,7 @@ function SlideGuardrails() {
               <span className="mt-1.5 h-2 w-2 rounded-full bg-black/25" />
               <div>
                 <div className="font-medium text-black/80">Explainable picks</div>
-                <div className="text-black/55">Short reasons - fast approval.</div>
+                <div className="text-black/55">Short reasons вЂ” fast approval.</div>
               </div>
             </div>
           </div>
@@ -456,7 +456,7 @@ function SlideGuardrails() {
             ))}
           </div>
           <div className="mt-4 rounded-2xl border border-black/10 bg-white/80 p-3 text-xs text-black/55">
-            Example: "3x3 candidates with guardrails - pick best to continue."
+            Example: вЂњ3Г—3 candidates with guardrails вЂ” pick best в†’ continue.вЂќ
           </div>
         </div>
       </div>
@@ -470,7 +470,7 @@ function SlideWeek() {
       <div className="text-xs uppercase tracking-wide text-black/45">Week plan</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-black">A week you can see.</div>
       <div className="mt-2 max-w-[56ch] text-sm text-black/55">
-        Sequence turns decisions into a weekly context - then export.
+        Sequence turns decisions into a weekly context вЂ” then export.
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -485,17 +485,17 @@ function SlideWeek() {
             ))}
           </div>
           <div className="mt-4 text-xs text-black/50">
-            Preview only - the prototype shows the full flow end-to-end.
+            Preview only вЂ” the prototype shows the full flow end-to-end.
           </div>
         </div>
 
         <div className="rounded-3xl border border-black/10 bg-white/75 p-4 shadow-sm">
           <div className="text-sm font-medium text-black">Ship checklist</div>
           <div className="mt-3 space-y-2 text-sm text-black/65">
-            <div>- Pick sequence</div>
-            <div>- Copy captions</div>
-            <div>- Paste hashtags</div>
-            <div>- Post / schedule</div>
+            <div>вЂў Pick sequence</div>
+            <div>вЂў Copy captions</div>
+            <div>вЂў Paste hashtags</div>
+            <div>вЂў Post / schedule</div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -593,7 +593,7 @@ function AutoAdvanceOutputStage({
               A keynote-style preview.
             </h2>
             <p className="mt-3 max-w-[52ch] text-sm text-black/55">
-              Artifacts-only preview - clean, fast, no duplicated marketing copy.
+              Artifacts-only preview вЂ” clean, fast, no duplicated marketing copy.
             </p>
 
             <div className="mt-6 flex items-center gap-3">
@@ -745,7 +745,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
             </h2>
 
             <p className="mt-5 max-w-[31ch] text-[15px] leading-8 text-black/42">
-              CreatorOps turns a week of content decisions into one clean export package -
+              CreatorOps turns a week of content decisions into one clean export package вЂ”
               ordered visuals, captions, hashtags, and handoff files that are easy to ship.
             </p>
 
@@ -799,12 +799,12 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
           >
             <div className="pointer-events-none absolute left-[-14%] top-[56%] h-px w-[22rem] rotate-[10deg] bg-[linear-gradient(90deg,rgba(15,23,42,0),rgba(15,23,42,0.08),rgba(15,23,42,0))]" />
 
-            <div className="co-motion-card-slow rounded-[1.9rem] border border-black/8 bg-white/92 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
+            <div className="rounded-[1.9rem] border border-black/8 bg-white/92 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
               <div className="flex items-start justify-between gap-4 pb-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.18em] text-black/24">Final pack</div>
                   <div className="mt-1 text-[1.05rem] font-medium tracking-[-0.035em] text-black">
-                    3x3 export preview
+                    3Г—3 export preview
                   </div>
                 </div>
 
@@ -822,7 +822,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
                     <img
                       src={src}
                       alt=""
-                      className="co-motion-image h-full w-full object-cover"
+                      className="h-full w-full object-cover"
                       loading="lazy"
                       decoding="async"
                       draggable={false}
@@ -837,7 +837,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
               </div>
 
               <div className="mt-4 text-[12px] text-black/36">
-                Ordered exactly as exported: <span className="text-black/52">01 to 09</span>
+                Ordered exactly as exported: <span className="text-black/52">01 в†’ 09</span>
               </div>
             </div>
 
@@ -928,7 +928,7 @@ export default function Marketing() {
 
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
-    // If a hash is present (e.g. #output), clear it so refresh never "jumps down".
+    // If a hash is present (e.g. #output), clear it so refresh never вЂњjumps downвЂќ.
     // Rail navigation stays internal; we intentionally keep the URL clean.
     if (window.location.hash) {
       try {
@@ -1065,8 +1065,8 @@ export default function Marketing() {
         <div
   className={[
     "rounded-full border p-2 backdrop-blur",
-    "w-[40px] overflow-visible",              // slim line, tooltip can overflow
-    "transition-colors duration-500 ease-out", // smooth dark->light
+    "w-[40px] overflow-visible",              // slim вЂњlineвЂќ, tooltip can overflow
+    "transition-colors duration-500 ease-out", // smooth darkв†”light
     railShell,
   ].join(" ")}
 >
@@ -1160,7 +1160,7 @@ export default function Marketing() {
               {HERO_FLOW.map((item, index) => (
                 <div
                   key={item.title}
-                  className="rounded-[20px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-sm transition duration-500 hover:-translate-y-1 hover:border-white/18 hover:bg-white/[0.065] hover:shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
+                  className="rounded-[20px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-sm transition duration-300 hover:border-white/16 hover:bg-white/[0.06]"
                 >
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-[12px] uppercase tracking-[0.18em] text-white/35">
@@ -1180,7 +1180,7 @@ export default function Marketing() {
 
             <div className="relative mx-auto max-w-[700px]">
               <div className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
-                <div className="co-motion-card rounded-[30px] border border-white/10 bg-[#0b1119]/88 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                <div className="rounded-[30px] border border-white/10 bg-[#0b1119]/88 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
@@ -1204,7 +1204,7 @@ export default function Marketing() {
                         <img
                           src={src}
                           alt={`Preview ${index + 1}`}
-                          className="co-motion-image h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                         />
                         <div className="absolute left-2 top-2 rounded-full border border-white/10 bg-black/35 px-2 py-1 text-[10px] font-medium text-white/80 backdrop-blur-sm">
                           0{index + 1}
@@ -1227,7 +1227,7 @@ export default function Marketing() {
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <div className="co-motion-card-slow co-motion-delay-1 rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
+                  <div className="rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
                       Smart Mix
                     </div>
@@ -1239,7 +1239,7 @@ export default function Marketing() {
                     </div>
                   </div>
 
-                  <div className="co-motion-card-slow co-motion-delay-2 rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
+                  <div className="rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
                       Bio Builder
                     </div>
@@ -1251,7 +1251,7 @@ export default function Marketing() {
                     </p>
                   </div>
 
-                  <div className="co-motion-card-slow co-motion-delay-3 rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
+                  <div className="rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
                       System signal
                     </div>
@@ -1268,7 +1268,7 @@ export default function Marketing() {
 
       <motion.section
         id="system-logic"
-        className="relative overflow-hidden border-y border-white/[0.07] bg-[#06080d] px-4 py-20 sm:px-6 md:px-10 lg:px-14 lg:py-40"
+        className="relative overflow-hidden border-y border-white/[0.07] bg-[#06080d] px-6 py-28 md:px-10 lg:px-14 lg:py-40"
         initial={
           reducedMotion
             ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
@@ -1284,7 +1284,7 @@ export default function Marketing() {
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent via-[#06080d]/60 to-[#080d12]" />
         </div>
 
-        <div className={[shellClass, "grid gap-12 lg:grid-cols-[0.94fr_1.06fr] lg:items-start lg:gap-28"].join(" ")}>
+        <div className={[shellClass, "grid gap-20 lg:grid-cols-[0.94fr_1.06fr] lg:items-start lg:gap-28"].join(" ")}>
           <motion.div {...getRevealProps(0.04, 24)}>
             <div className="mb-7 inline-flex rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/42">
               Operating logic
@@ -1350,24 +1350,24 @@ export default function Marketing() {
             </div>
           </motion.div>
 
-          <motion.div className="relative grid gap-4 lg:block lg:min-h-[680px]" {...getRevealProps(0.18, 30)}>
-            <div className="pointer-events-none absolute inset-0 hidden lg:block">
-              <div className="co-motion-line absolute left-[8%] top-[16%] h-[68%] w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-              <div className="co-motion-line absolute left-[8%] top-[48%] h-px w-[82%] bg-gradient-to-r from-white/12 via-white/7 to-transparent" />
-              <div className="co-motion-line absolute left-[30%] top-[29%] h-px w-[48%] rotate-[-14deg] bg-gradient-to-r from-transparent via-white/7 to-transparent" />
-              <div className="co-motion-line absolute left-[38%] top-[71%] h-px w-[42%] rotate-[11deg] bg-gradient-to-r from-transparent via-white/7 to-transparent" />
+          <motion.div className="relative min-h-[700px] lg:min-h-[680px]" {...getRevealProps(0.18, 30)}>
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute left-[8%] top-[16%] h-[68%] w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+              <div className="absolute left-[8%] top-[48%] h-px w-[82%] bg-gradient-to-r from-white/12 via-white/7 to-transparent" />
+              <div className="absolute left-[30%] top-[29%] h-px w-[48%] rotate-[-14deg] bg-gradient-to-r from-transparent via-white/7 to-transparent" />
+              <div className="absolute left-[38%] top-[71%] h-px w-[42%] rotate-[11deg] bg-gradient-to-r from-transparent via-white/7 to-transparent" />
 
-              <div className="co-motion-dot absolute left-[4%] top-[45%] h-3 w-3 rounded-full border border-white/16 bg-white/[0.035] shadow-[0_0_42px_rgba(255,255,255,0.15)]" />
-              <div className="co-motion-dot absolute left-[48%] top-[25%] h-2 w-2 rounded-full bg-white/20 shadow-[0_0_34px_rgba(255,255,255,0.16)]" />
-              <div className="co-motion-dot absolute right-[10%] top-[48%] h-3 w-3 rounded-full border border-white/14 bg-white/[0.032] shadow-[0_0_46px_rgba(255,255,255,0.14)]" />
-              <div className="co-motion-dot absolute left-[54%] bottom-[14%] h-2 w-2 rounded-full bg-white/18 shadow-[0_0_32px_rgba(255,255,255,0.14)]" />
+              <div className="absolute left-[4%] top-[45%] h-3 w-3 rounded-full border border-white/16 bg-white/[0.035] shadow-[0_0_42px_rgba(255,255,255,0.15)]" />
+              <div className="absolute left-[48%] top-[25%] h-2 w-2 rounded-full bg-white/20 shadow-[0_0_34px_rgba(255,255,255,0.16)]" />
+              <div className="absolute right-[10%] top-[48%] h-3 w-3 rounded-full border border-white/14 bg-white/[0.032] shadow-[0_0_46px_rgba(255,255,255,0.14)]" />
+              <div className="absolute left-[54%] bottom-[14%] h-2 w-2 rounded-full bg-white/18 shadow-[0_0_32px_rgba(255,255,255,0.14)]" />
 
-              <div className="co-motion-glow absolute left-[10%] top-[16%] h-52 w-52 rounded-full bg-white/[0.025] blur-3xl" />
-              <div className="co-motion-glow absolute right-[4%] top-[38%] h-64 w-64 rounded-full bg-white/[0.02] blur-3xl" />
-              <div className="co-motion-glow absolute left-[28%] bottom-[6%] h-56 w-56 rounded-full bg-white/[0.018] blur-3xl" />
+              <div className="absolute left-[10%] top-[16%] h-52 w-52 rounded-full bg-white/[0.025] blur-3xl" />
+              <div className="absolute right-[4%] top-[38%] h-64 w-64 rounded-full bg-white/[0.02] blur-3xl" />
+              <div className="absolute left-[28%] bottom-[6%] h-56 w-56 rounded-full bg-white/[0.018] blur-3xl" />
             </div>
 
-            <div className="relative max-w-none rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:absolute lg:left-[0%] lg:top-[4%] lg:max-w-[18rem] lg:border-0 lg:bg-transparent lg:p-0">
+            <div className="absolute left-[0%] top-[4%] max-w-[18rem]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-white/26">
                 Input field
               </div>
@@ -1379,7 +1379,7 @@ export default function Marketing() {
               </p>
             </div>
 
-            <div className="relative max-w-none rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:absolute lg:right-[0%] lg:top-[34%] lg:max-w-[20rem] lg:border-0 lg:bg-transparent lg:p-0">
+            <div className="absolute right-[0%] top-[34%] max-w-[20rem]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-white/26">
                 Guardrail layer
               </div>
@@ -1403,7 +1403,7 @@ export default function Marketing() {
               </div>
             </div>
 
-            <div className="relative max-w-none rounded-[24px] border border-white/10 bg-white/[0.025] p-5 lg:absolute lg:bottom-[2%] lg:left-[22%] lg:max-w-[25rem] lg:border-0 lg:bg-transparent lg:p-0">
+            <div className="absolute bottom-[2%] left-[22%] max-w-[25rem]">
               <div className="text-[11px] uppercase tracking-[0.24em] text-white/26">
                 Output contract
               </div>
@@ -1433,13 +1433,13 @@ export default function Marketing() {
         </div>
       </motion.section>
 
-      {/* TRANSITION (dark -> light) */}
+      {/* TRANSITION (dark в†’ light) */}
 <section className="relative -mt-[2px] -mb-[2px] overflow-hidden bg-[#f5f5f7]">
   <div className="absolute inset-0">
     <img
       src="/creatorops/landing/bg-03-bridge.png"
       alt=""
-      className="h-full w-full object-cover object-center md:object-contain"
+      className="h-full w-full object-contain object-center"
       draggable={false}
       loading="lazy"
       decoding="async"
@@ -1447,10 +1447,10 @@ export default function Marketing() {
 
     {/* TOP CAP: makes the very start identical to the dark section above (kills the hard seam) */}
     <div className="absolute inset-x-0 top-0 h-[180px] bg-[#0b0f15]" />
-    {/* TOP FEATHER: slowly reveals the bridge image (restores as was smoothness) */}
+    {/* TOP FEATHER: slowly reveals the bridge image (restores вЂњas wasвЂќ smoothness) */}
     <div className="absolute inset-x-0 top-0 h-[520px] bg-gradient-to-b from-[#0b0f15] via-[#0b0f15]/75 to-transparent" />
 
-    {/* Global dark->light wash (keeps the premium falloff) */}
+    {/* Global darkв†’light wash (keeps the premium falloff) */}
     <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#0b0f15_0%,rgba(11,15,21,0.92)_28%,rgba(11,15,21,0.55)_52%,rgba(245,245,247,0)_78%,rgba(245,245,247,0)_100%)]" />
 
     {/* Bottom feather to match Roadmap canvas (keep what we already fixed) */}
@@ -1458,7 +1458,7 @@ export default function Marketing() {
   </div>
 
   <div className={shellClass}>
-    <div className="flex min-h-[64svh] items-center py-16 md:min-h-[92svh] md:py-24">
+    <div className="min-h-[92svh] py-24 flex items-center">
       <motion.div className="max-w-[560px]" {...getRevealProps(0.04, 22)}>
         <div className="text-sm text-white/70">From chaos to system</div>
         <h2 className="mt-2 text-3xl tracking-tight text-white md:text-4xl">
@@ -1507,7 +1507,7 @@ export default function Marketing() {
           <div className="text-sm text-black/60">Next</div>
           <h2 className="mt-2 text-2xl text-black">Join the waitlist.</h2>
           <p className="mt-3 text-sm text-black/55">
-            We'll validate the loop (time saved + output quality), then ship beta access.
+            WeвЂ™ll validate the loop (time saved + output quality), then ship beta access.
           </p>
 
           <ul className="mt-6 space-y-2 text-sm text-black/65">
@@ -1539,7 +1539,7 @@ export default function Marketing() {
         <div className={[shellClass, "pb-10"].join(" ")}>
           <Reveal>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-black/10 bg-white/70 px-6 py-4 text-sm text-black/60 backdrop-blur">
-              <div>CreatorOps - prototype (offline demo)</div>
+              <div>CreatorOps вЂ” prototype (offline demo)</div>
               <div className="flex items-center gap-4">
                 <Link to="/story" className="hover:text-black">
                   Story

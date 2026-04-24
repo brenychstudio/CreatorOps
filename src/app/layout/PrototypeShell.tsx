@@ -22,10 +22,10 @@ export default function PrototypeShell() {
 
   return (
     <div className="proto-theme min-h-dvh bg-[color:var(--co-bg)] text-[color:var(--co-text)]">
-      <div className="mx-auto w-full max-w-[1200px] px-4 py-4">
+      <div className="mx-auto w-full max-w-[1200px] px-3 py-3 sm:px-4 sm:py-4">
         {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => navigate("/", { replace: false })}
               className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface)] pressable"
@@ -35,16 +35,18 @@ export default function PrototypeShell() {
             <div className="text-sm text-[color:var(--co-muted)]">Interactive Prototype</div>
           </div>
 
-          <Stepper />
+          <div className="w-full min-w-0 md:w-auto">
+            <Stepper />
+          </div>
         </div>
 
         {/* Secondary nav */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-4 py-3">
+        <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-3 sm:px-4">
           <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
             Tools
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {tools.map((tool) => {
               const active = location.pathname.startsWith(tool.path);
 
@@ -69,14 +71,14 @@ export default function PrototypeShell() {
         </div>
 
         {/* Main */}
-        <div className="mt-4 grid grid-cols-12 gap-4">
+        <div className="mt-4 grid min-w-0 grid-cols-12 gap-4">
           <div
             className={[
-              "col-span-12",
+              "col-span-12 min-w-0",
               isBioBuilderRoute ? "lg:col-span-12" : "lg:col-span-9",
             ].join(" ")}
           >
-            <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
+            <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 shadow-sm sm:p-4">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={location.pathname}
@@ -92,7 +94,7 @@ export default function PrototypeShell() {
           </div>
 
           {!isBioBuilderRoute && (
-            <div className="col-span-12 lg:col-span-3">
+            <div className="col-span-12 min-w-0 lg:col-span-3">
               <ReadoutRail />
             </div>
           )}

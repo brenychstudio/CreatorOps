@@ -510,19 +510,19 @@ export default function Story() {
 
       {/* Sticky chrome */}
       <div className="sticky top-0 z-50">
-        <div className="mx-auto w-full max-w-[1200px] px-4 pt-4">
+        <div className="mx-auto w-full max-w-[1200px] px-3 pt-3 sm:px-4 sm:pt-4">
           <div
             className={[
-              "flex h-12 flex-nowrap items-center justify-between rounded-full border px-3 backdrop-blur",
+              "flex min-h-12 flex-wrap items-center justify-between gap-2 rounded-[1.5rem] border px-3 py-2 backdrop-blur sm:flex-nowrap sm:rounded-full sm:py-0",
               "transition-colors duration-500 ease-out",
               chromeIsDark ? "border-white/10 bg-black/35" : "border-black/10 bg-white/55",
             ].join(" ")}
           >
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto">
               <Link
                 to="/"
                 className={[
-                  "text-xs pressable",
+                  "whitespace-nowrap text-xs pressable",
                   "transition-colors duration-500 ease-out",
                   chromeIsDark ? "text-white/70 hover:text-white" : "text-black/70 hover:text-black",
                 ].join(" ")}
@@ -543,7 +543,7 @@ export default function Story() {
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex w-full min-w-0 items-center justify-between gap-2 sm:w-auto sm:justify-end">
               {/* progress */}
               <div className="hidden items-center gap-2 sm:flex">
                 <div
@@ -579,7 +579,7 @@ export default function Story() {
                 type="button"
                 onClick={() => setNotesOpen(true)}
                 className={[
-                  "rounded-full px-3 py-1.5 text-xs ring-1 pressable",
+                  "w-[34%] rounded-full px-3 py-1.5 text-xs ring-1 pressable sm:w-auto",
                   "transition-colors duration-500 ease-out",
                   chromeIsDark ? "bg-white/10 text-white ring-white/15 hover:bg-white/15" : "bg-black/5 text-black ring-black/10 hover:bg-black/10",
                 ].join(" ")}
@@ -596,7 +596,7 @@ export default function Story() {
                   setSoundOn((v) => !v);
                 }}
                 className={[
-                  "rounded-full px-3 py-1.5 text-xs ring-1 pressable",
+                  "hidden rounded-full px-3 py-1.5 text-xs ring-1 pressable sm:inline-flex",
                   "transition-colors duration-500 ease-out",
                   !soundEnabled
                     ? chromeIsDark
@@ -618,7 +618,7 @@ export default function Story() {
               <Link
                 to="/prototype"
                 className={[
-                  "rounded-full px-3 py-1.5 text-xs ring-1 pressable",
+                  "flex-1 shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-center text-xs ring-1 pressable sm:flex-none",
                   "transition-colors duration-500 ease-out",
                   chromeIsDark ? "bg-white/10 text-white ring-white/15 hover:bg-white/15" : "bg-black/5 text-black ring-black/10 hover:bg-black/10",
                 ].join(" ")}

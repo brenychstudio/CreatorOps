@@ -34,7 +34,7 @@ export default function Library() {
   };
 
   return (
-    <div className="space-y-4 text-[color:var(--co-text)]">
+    <div className="min-w-0 space-y-4 text-[color:var(--co-text)]">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="text-lg text-[color:var(--co-text)]">Library</div>
@@ -42,13 +42,13 @@ export default function Library() {
         </div>
 
         {/* Header actions (no uploader here; uploader lives in right rail) */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button
             type="button"
             onClick={clearSelection}
             disabled={!selected.length}
             className={[
-              "rounded-full border px-4 py-2 text-sm transition pressable",
+              "flex-1 rounded-full border px-4 py-2 text-sm transition pressable sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               selected.length
                 ? "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-text)] hover:opacity-90"
@@ -62,7 +62,7 @@ export default function Library() {
           <button
             type="button"
             onClick={onAddToSmartMix}
-            className="relative z-10 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable
+            className="relative z-10 flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable sm:flex-none
 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
           >
             Add to Smart Mix
@@ -75,7 +75,7 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
 
       <OnboardingHint />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
         {feedAssets.map((a) => {
           const isSel = selectedSet.has(a.id);
           const isUpload = a.source === "upload";

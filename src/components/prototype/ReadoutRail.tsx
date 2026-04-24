@@ -81,9 +81,9 @@ export default function ReadoutRail() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* Machine readout */}
-      <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm text-[color:var(--co-text)]">
+      <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm text-[color:var(--co-text)]">
         <div className="text-xs text-[color:var(--co-muted)]">Machine readout</div>
         <div className="mt-2 h-px w-full bg-[color:var(--co-border)]" />
         <div className="mt-2">
@@ -98,7 +98,7 @@ export default function ReadoutRail() {
       {isLibrary ? (
         <div
           className={[
-            "relative rounded-2xl border bg-[color:var(--co-surface-2)] p-4 shadow-sm text-[color:var(--co-text)]",
+            "relative min-w-0 rounded-2xl border bg-[color:var(--co-surface-2)] p-4 shadow-sm text-[color:var(--co-text)]",
             isDragging ? "border-[color:var(--co-text)]/40" : "border-[color:var(--co-border)]",
           ].join(" ")}
           onDragEnter={onDragEnter}

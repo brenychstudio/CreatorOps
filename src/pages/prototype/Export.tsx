@@ -480,7 +480,7 @@ export default function Export() {
     const order = String(props.index + 1).padStart(2, "0");
 
     return (
-      <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-2">
+    <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-1.5 sm:p-2">
         <div className="relative overflow-hidden rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)]">
           <div className="aspect-[4/5] w-full">
             {a ? (
@@ -514,7 +514,7 @@ export default function Export() {
   };
 
   return (
-    <div className="space-y-5 text-[color:var(--co-text)]">
+    <div className="min-w-0 space-y-5 text-[color:var(--co-text)]">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -524,12 +524,12 @@ export default function Export() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <button
             type="button"
             onClick={() => navigate("/prototype/captions")}
             className={[
-              "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90",
+              "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               pressable,
             ].join(" ")}
@@ -545,7 +545,7 @@ export default function Export() {
               navigate("/", { replace: false });
             }}
             className={[
-              "rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90",
+              "flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               pressable,
             ].join(" ")}
@@ -556,16 +556,16 @@ export default function Export() {
       </div>
 
       {/* Layout */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-12">
         {/* Left: 3×3 preview */}
-        <div className="lg:col-span-7">
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
+        <div className="min-w-0 lg:col-span-7">
+          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 shadow-sm sm:p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs text-[color:var(--co-muted)]">3×3 pack preview</div>
               <div className="text-[11px] text-[color:var(--co-muted)]">Week (7) + Next (2)</div>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
               {gridIds.map((id, i) => (
                 <Tile
                   key={`${id ?? "empty"}-${i}`}
@@ -583,16 +583,16 @@ export default function Export() {
         </div>
 
         {/* Right: actions */}
-        <div className="lg:col-span-5 space-y-5">
+        <div className="min-w-0 space-y-5 lg:col-span-5">
           <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-[color:var(--co-muted)]">Download</div>
               <button
                 type="button"
                 onClick={onDownloadPack}
                 disabled={isZipping}
                 className={[
-                  "rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90",
+                  "w-full rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:w-auto",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
                   pressable,
                   isZipping ? "opacity-70 cursor-wait" : "",
@@ -649,14 +649,14 @@ export default function Export() {
           </div>
 
           <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-[color:var(--co-muted)]">Feedback</div>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 <button
                   type="button"
                   onClick={copyDiagnostics}
                   className={[
-                    "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
+                    "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
                     pressable,
                   ].join(" ")}
@@ -668,7 +668,7 @@ export default function Export() {
                   type="button"
                   onClick={sendFeedbackEmail}
                   className={[
-                    "rounded-full bg-[color:var(--co-text)] px-3 py-1.5 text-xs text-[color:var(--co-bg)] hover:opacity-90",
+                    "flex-1 rounded-full bg-[color:var(--co-text)] px-3 py-1.5 text-xs text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
                     pressable,
                   ].join(" ")}
@@ -694,7 +694,7 @@ export default function Export() {
           </div>
 
           <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-[color:var(--co-muted)]">Reset</div>
               <button
                 type="button"

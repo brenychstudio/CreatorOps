@@ -18,7 +18,7 @@ export default function App() {
 
   return (
     <>
-      {showThemeToggle ? <ThemeToggle className="fixed right-4 top-4 z-[60]" /> : null}
+      {showThemeToggle ? <ThemeToggle className="fixed right-4 top-4 z-[60] hidden md:inline-flex" /> : null}
       <AppRoutes />
     </>
   );

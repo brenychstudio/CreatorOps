@@ -104,7 +104,7 @@ export default function Stepper() {
   };
 
   return (
-    <div className="relative hidden md:flex items-center gap-2">
+    <div className="relative flex w-full min-w-0 items-center gap-2 overflow-x-auto pb-1 md:w-auto md:overflow-visible md:pb-0">
       {steps.map((s, i) => {
         const active = i === activeIndex;
         const done = i < activeIndex;
@@ -127,7 +127,7 @@ export default function Stepper() {
             onClick={() => onStepClick(s.key, s.path)}
             aria-disabled={locked ? true : undefined}
             className={[
-              "rounded-full border px-3 py-1 text-xs pressable",
+              "shrink-0 rounded-full border px-3 py-1 text-xs pressable",
               "border-[color:var(--co-border)]",
               "transition-[background-color,color,border-color,opacity,filter] duration-300 ease-out",
               state,
@@ -141,7 +141,7 @@ export default function Stepper() {
       })}
 
       {hint ? (
-        <div className="absolute right-0 top-full mt-2 w-[320px] rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 shadow-lg">
+        <div className="absolute right-0 top-full z-20 mt-2 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 shadow-lg">
           <div className="text-xs text-[color:var(--co-muted)]">Next step</div>
           <div className="mt-1 text-sm text-[color:var(--co-text)]">{hint.msg}</div>
           <div className="mt-3 flex items-center justify-end gap-2">

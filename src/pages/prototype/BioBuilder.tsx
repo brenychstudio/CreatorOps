@@ -433,7 +433,7 @@ export default function BioBuilder() {
   };
 
   return (
-    <div className="space-y-5 text-[color:var(--co-text)]">
+    <div className="min-w-0 space-y-5 text-[color:var(--co-text)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-lg text-[color:var(--co-text)]">Bio Builder</div>
@@ -447,8 +447,8 @@ export default function BioBuilder() {
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(380px,0.98fr)_minmax(420px,1.02fr)]">
-        <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4 shadow-sm">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(380px,0.98fr)_minmax(420px,1.02fr)]">
+        <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 shadow-sm sm:p-4">
           <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
             Builder
           </div>
@@ -470,14 +470,14 @@ export default function BioBuilder() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4">
+          <div className="mt-5 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 overflow-hidden rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]">
                   <img src={avatarUrl} alt="Avatar preview" className="h-full w-full object-cover" />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <div className="text-sm font-medium text-[color:var(--co-text)]">Avatar</div>
                   <div className="mt-1 text-[12px] text-[color:var(--co-muted)]">
                     Upload a profile image for the simulator preview.
@@ -485,11 +485,11 @@ export default function BioBuilder() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable"
+                  className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
                 >
                   Upload avatar
                 </button>
@@ -497,7 +497,7 @@ export default function BioBuilder() {
                 <button
                   type="button"
                   onClick={() => setAvatarUrl(defaultAvatarUrl)}
-                  className="rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+                  className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
                 >
                   Use demo
                 </button>
@@ -584,14 +584,14 @@ export default function BioBuilder() {
               onClick={() => setShowAdvanced((value) => !value)}
               className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left pressable"
             >
-              <span>
+              <span className="min-w-0">
                 <span className="block text-xs text-[color:var(--co-muted)]">Advanced details</span>
                 <span className="mt-1 block text-[13px] text-[color:var(--co-text)]/78">
                   Category, niche, proof line, and link metadata.
                 </span>
               </span>
 
-              <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+              <span className="shrink-0 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
                 {showAdvanced ? "Hide" : "Show"}
               </span>
             </button>
@@ -648,14 +648,14 @@ export default function BioBuilder() {
 
           <div className="mt-4 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs text-[color:var(--co-muted)]">Generated bio variants</div>
                 <div className="mt-1 text-[13px] leading-5 text-[color:var(--co-text)]/78">
                   Pick one structured direction for the live preview.
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex min-w-0 flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={applyCoreContext}
@@ -700,7 +700,7 @@ export default function BioBuilder() {
             <button
               type="button"
               onClick={() => navigate("/prototype/export")}
-              className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable"
+              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
             >
               Back to Export
             </button>
@@ -708,7 +708,7 @@ export default function BioBuilder() {
             <button
               type="button"
               onClick={onReset}
-              className="rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
             >
               Reset form
             </button>
@@ -716,15 +716,15 @@ export default function BioBuilder() {
             <button
               type="button"
               onClick={() => downloadTextFile("creatorops-bio-pack.txt", profilePackText)}
-              className="rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable"
+              className="flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable sm:flex-none"
             >
               Download .txt
             </button>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
                 Profile simulator
@@ -739,7 +739,7 @@ export default function BioBuilder() {
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-[2rem] border border-[color:var(--co-border)] bg-[#111317] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+          <div className="mt-4 max-w-full overflow-hidden rounded-[1.5rem] border border-[color:var(--co-border)] bg-[#111317] shadow-[0_18px_60px_rgba(0,0,0,0.22)] sm:rounded-[2rem]">
             <div className="flex items-center justify-between border-b border-white/8 px-5 py-3">
               <div className="text-[13px] font-medium text-white/92">{form.handle || "yourhandle"}</div>
               <div className="flex items-center gap-3 text-white/70">
@@ -749,7 +749,7 @@ export default function BioBuilder() {
             </div>
 
             <div className="p-5">
-              <div className="grid grid-cols-[72px_1fr] items-start gap-4 sm:grid-cols-[84px_1fr]">
+              <div className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[84px_minmax(0,1fr)]">
                 <div className="h-[72px] w-[72px] overflow-hidden rounded-full border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))] sm:h-[84px] sm:w-[84px]">
                   <img src={avatarUrl} alt="Profile avatar" className="h-full w-full object-cover opacity-95" />
                 </div>
@@ -797,7 +797,7 @@ export default function BioBuilder() {
                   ))}
                 </div>
 
-                <div className="text-[12px] text-[#8ab4ff]">
+                <div className="break-words text-[12px] text-[#8ab4ff]">
                   {form.linkUrl || "yourbrand.com"} / {form.linkLabel || "link-in-bio"}
                 </div>
 
@@ -863,7 +863,7 @@ export default function BioBuilder() {
                   </div>
                 </div>
 
-                <div className="mt-1 max-w-[42ch] truncate text-[12px] leading-5 text-[color:var(--co-text)]/68">
+                <div className="mt-1 max-w-[42ch] text-[12px] leading-5 text-[color:var(--co-text)]/68 sm:truncate">
                   {usingUploadedGrid
                     ? "Uploaded images are driving this preview."
                     : usingExportPack
@@ -872,11 +872,11 @@ export default function BioBuilder() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-wrap gap-2">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
                 <button
                   type="button"
                   onClick={() => gridInputRef.current?.click()}
-                  className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-[12px] text-[color:var(--co-text)] hover:opacity-90 pressable"
+                  className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-[12px] text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
                 >
                   Upload grid
                 </button>
@@ -885,7 +885,7 @@ export default function BioBuilder() {
                   <button
                     type="button"
                     onClick={clearUploadedGrid}
-                    className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+                    className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
                   >
                     Clear
                   </button>
@@ -893,7 +893,7 @@ export default function BioBuilder() {
                   <button
                     type="button"
                     onClick={() => navigate("/prototype/library")}
-                    className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+                    className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
                   >
                     Build pack
                   </button>
