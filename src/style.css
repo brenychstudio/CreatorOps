@@ -12,6 +12,153 @@
   --co-card: #0e121a;
 }
 
+/* CreatorOps Awards Motion Polish */
+@keyframes co-soft-float {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes co-soft-float-slow {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes co-glow-breathe {
+  0% {
+    opacity: 0.48;
+    filter: blur(0px);
+  }
+  50% {
+    opacity: 0.78;
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 0.48;
+    filter: blur(0px);
+  }
+}
+
+@keyframes co-line-drift {
+  0% {
+    opacity: 0.28;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.48;
+    transform: translate3d(8px, -2px, 0);
+  }
+  100% {
+    opacity: 0.28;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes co-dot-pulse {
+  0% {
+    opacity: 0.42;
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
+  }
+  50% {
+    opacity: 0.88;
+    box-shadow: 0 0 34px rgba(255, 255, 255, 0.2);
+  }
+  100% {
+    opacity: 0.42;
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
+  }
+}
+
+@keyframes co-image-breathe {
+  0% {
+    transform: scale(1);
+    filter: saturate(0.96) contrast(1);
+  }
+  50% {
+    transform: scale(1.018);
+    filter: saturate(1.03) contrast(1.03);
+  }
+  100% {
+    transform: scale(1);
+    filter: saturate(0.96) contrast(1);
+  }
+}
+
+.co-motion-card {
+  animation: co-soft-float 8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.co-motion-card-slow {
+  animation: co-soft-float-slow 10s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.co-motion-image {
+  animation: co-image-breathe 12s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: center;
+  will-change: transform, filter;
+}
+
+.co-motion-line {
+  animation: co-line-drift 9s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  will-change: opacity, transform;
+}
+
+.co-motion-dot {
+  animation: co-dot-pulse 4.8s ease-in-out infinite;
+  will-change: opacity, box-shadow;
+}
+
+.co-motion-glow {
+  animation: co-glow-breathe 7.5s ease-in-out infinite;
+  will-change: opacity, filter;
+}
+
+.co-motion-delay-1 {
+  animation-delay: 0.18s;
+}
+
+.co-motion-delay-2 {
+  animation-delay: 0.42s;
+}
+
+.co-motion-delay-3 {
+  animation-delay: 0.72s;
+}
+
+.co-motion-delay-4 {
+  animation-delay: 1.05s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .co-motion-card,
+  .co-motion-card-slow,
+  .co-motion-image,
+  .co-motion-line,
+  .co-motion-dot,
+  .co-motion-glow {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
 :root[data-theme="light"] {
   --co-bg: #f6f7f8;
   --co-surface: rgba(0, 0, 0, 0.04);

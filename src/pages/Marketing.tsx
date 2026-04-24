@@ -1,4 +1,4 @@
-// src/pages/Marketing.tsx
+﻿// src/pages/Marketing.tsx
 import RoadmapSection from "../components/marketing/RoadmapSection";
 
 import {
@@ -17,7 +17,7 @@ import { useTheme } from "../app/theme/useTheme";
 
 const MODULES = [
   { title: "Library", desc: "Collect and pick your strongest assets." },
-  { title: "Smart Mix", desc: "Auto-curated 3×3 candidates with guardrails." },
+  { title: "Smart Mix", desc: "Auto-curated 3x3 candidates with guardrails." },
   { title: "Sequence", desc: "Turn the best mix into a weekly plan." },
   { title: "Planner", desc: "Drag & drop slots. Stay flexible." },
   { title: "Captions", desc: "Generate copy + hashtags per post." },
@@ -25,7 +25,7 @@ const MODULES = [
 ];
 
 const BENEFITS = [
-  { title: "Less decisions", desc: "The system proposes — you approve." },
+  { title: "Less decisions", desc: "The system proposes - you approve." },
   { title: "No repeats", desc: "Basic anti-pattern guardrails in the mix." },
   { title: "Publish-ready output", desc: "Captions + hashtags in one export pack." },
 ];
@@ -36,6 +36,8 @@ const OUTPUTS = [
   "Weekly plan preview (7-day context)",
   "Prototype flow in ~2 minutes",
 ];
+
+const SHELL_CLASS = "mx-auto w-full max-w-[1240px] px-6 md:px-10 lg:px-14";
 
 function Card({ title, desc }: { title: string; desc: string }) {
   return (
@@ -303,7 +305,7 @@ const LANDING_SCROLL_OFFSET_PX = 96;
 
 const LANDING_SECTIONS = [
   { id: "top", label: "Top" },
-  { id: "modules", label: "Flow" },
+  { id: "system-logic", label: "Logic" },
   { id: "roadmap", label: "Roadmap" },
   { id: "output", label: "Output" },
   { id: "waitlist", label: "Waitlist" },
@@ -325,7 +327,7 @@ const OUTPUT_SLIDES: Array<{
     key: "export",
     label: "Export pack",
     title: "A bundle you can ship today.",
-    desc: "Captions + hashtags + week context — clean handoff, zero integrations.",
+    desc: "Captions + hashtags + week context - clean handoff, zero integrations.",
   },
   {
     key: "guardrails",
@@ -337,7 +339,7 @@ const OUTPUT_SLIDES: Array<{
     key: "week",
     label: "Week plan",
     title: "A clear 7-day context.",
-    desc: "See the sequence as a week — then export a publish-ready pack.",
+    desc: "See the sequence as a week - then export a publish-ready pack.",
   },
 ];
 
@@ -355,7 +357,7 @@ function SlideExport() {
       <div className="text-xs uppercase tracking-wide text-black/45">Export pack</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-black">creatorops-export-pack.zip</div>
       <div className="mt-2 max-w-[56ch] text-sm text-black/55">
-        One deliverable: captions, hashtags, week plan, checklist — ready to publish.
+        One deliverable: captions, hashtags, week plan, checklist - ready to publish.
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -406,7 +408,7 @@ function SlideGuardrails() {
       <div className="text-xs uppercase tracking-wide text-black/45">Guardrails</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-black">Upstream rules. Downstream calm.</div>
       <div className="mt-2 max-w-[56ch] text-sm text-black/55">
-        The mix is proposed with simple constraints — so you don’t fight repeats later.
+        The mix is proposed with simple constraints - so you don't fight repeats later.
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -431,7 +433,7 @@ function SlideGuardrails() {
               <span className="mt-1.5 h-2 w-2 rounded-full bg-black/25" />
               <div>
                 <div className="font-medium text-black/80">Explainable picks</div>
-                <div className="text-black/55">Short reasons — fast approval.</div>
+                <div className="text-black/55">Short reasons - fast approval.</div>
               </div>
             </div>
           </div>
@@ -454,7 +456,7 @@ function SlideGuardrails() {
             ))}
           </div>
           <div className="mt-4 rounded-2xl border border-black/10 bg-white/80 p-3 text-xs text-black/55">
-            Example: “3×3 candidates with guardrails — pick best → continue.”
+            Example: "3x3 candidates with guardrails - pick best to continue."
           </div>
         </div>
       </div>
@@ -468,7 +470,7 @@ function SlideWeek() {
       <div className="text-xs uppercase tracking-wide text-black/45">Week plan</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-black">A week you can see.</div>
       <div className="mt-2 max-w-[56ch] text-sm text-black/55">
-        Sequence turns decisions into a weekly context — then export.
+        Sequence turns decisions into a weekly context - then export.
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -483,17 +485,17 @@ function SlideWeek() {
             ))}
           </div>
           <div className="mt-4 text-xs text-black/50">
-            Preview only — the prototype shows the full flow end-to-end.
+            Preview only - the prototype shows the full flow end-to-end.
           </div>
         </div>
 
         <div className="rounded-3xl border border-black/10 bg-white/75 p-4 shadow-sm">
           <div className="text-sm font-medium text-black">Ship checklist</div>
           <div className="mt-3 space-y-2 text-sm text-black/65">
-            <div>• Pick sequence</div>
-            <div>• Copy captions</div>
-            <div>• Paste hashtags</div>
-            <div>• Post / schedule</div>
+            <div>- Pick sequence</div>
+            <div>- Copy captions</div>
+            <div>- Paste hashtags</div>
+            <div>- Post / schedule</div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -582,7 +584,7 @@ function AutoAdvanceOutputStage({
         />
       </div>
 
-      <div className="relative mx-auto w-full max-w-6xl px-6">
+      <div className={[SHELL_CLASS, "py-18 sm:py-20 lg:py-24"].join(" ")}>
         <div className="grid items-start gap-10 lg:grid-cols-12">
           {/* Left: copy + controls */}
           <div className="lg:col-span-5">
@@ -591,7 +593,7 @@ function AutoAdvanceOutputStage({
               A keynote-style preview.
             </h2>
             <p className="mt-3 max-w-[52ch] text-sm text-black/55">
-              Artifacts-only preview — clean, fast, no duplicated marketing copy.
+              Artifacts-only preview - clean, fast, no duplicated marketing copy.
             </p>
 
             <div className="mt-6 flex items-center gap-3">
@@ -715,7 +717,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
     <section id="output" className="relative scroll-mt-24 bg-[#f5f5f7] text-black">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_74%_46%,rgba(15,23,42,0.035),rgba(15,23,42,0)_34%)]" />
 
-      <div className="relative mx-auto w-full max-w-[1200px] px-4 py-18 sm:py-20 lg:py-24">
+      <div className={[SHELL_CLASS, "py-18 sm:py-20 lg:py-24"].join(" ")}>
         <div className="relative grid items-center gap-10 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-14">
           <motion.div
             initial={
@@ -743,7 +745,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
             </h2>
 
             <p className="mt-5 max-w-[31ch] text-[15px] leading-8 text-black/42">
-              CreatorOps turns a week of content decisions into one clean export package —
+              CreatorOps turns a week of content decisions into one clean export package -
               ordered visuals, captions, hashtags, and handoff files that are easy to ship.
             </p>
 
@@ -797,12 +799,12 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
           >
             <div className="pointer-events-none absolute left-[-14%] top-[56%] h-px w-[22rem] rotate-[10deg] bg-[linear-gradient(90deg,rgba(15,23,42,0),rgba(15,23,42,0.08),rgba(15,23,42,0))]" />
 
-            <div className="rounded-[1.9rem] border border-black/8 bg-white/92 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
+            <div className="co-motion-card-slow rounded-[1.9rem] border border-black/8 bg-white/92 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.06)]">
               <div className="flex items-start justify-between gap-4 pb-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.18em] text-black/24">Final pack</div>
                   <div className="mt-1 text-[1.05rem] font-medium tracking-[-0.035em] text-black">
-                    3×3 export preview
+                    3x3 export preview
                   </div>
                 </div>
 
@@ -820,7 +822,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
                     <img
                       src={src}
                       alt=""
-                      className="h-full w-full object-cover"
+                      className="co-motion-image h-full w-full object-cover"
                       loading="lazy"
                       decoding="async"
                       draggable={false}
@@ -835,7 +837,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
               </div>
 
               <div className="mt-4 text-[12px] text-black/36">
-                Ordered exactly as exported: <span className="text-black/52">01 → 09</span>
+                Ordered exactly as exported: <span className="text-black/52">01 to 09</span>
               </div>
             </div>
 
@@ -848,6 +850,40 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
     </section>
   );
 }
+
+const HERO_FLOW = [
+  {
+    title: "Library",
+    text: "Collect and filter the strongest source assets.",
+  },
+  {
+    title: "Smart Mix",
+    text: "Generate ranked 3×3 candidates with calm guardrails.",
+  },
+  {
+    title: "Export",
+    text: "Ship a clean pack with ordered visuals and captions.",
+  },
+  {
+    title: "Bio Builder",
+    text: "Carry the selected pack into a profile-ready simulator.",
+  },
+] as const;
+
+const HERO_STATS = [
+  "9 ordered images",
+  "4 ranked candidates",
+  "ZIP + captions + CSV",
+] as const;
+
+const HERO_PREVIEW_IMAGES = [
+  "/creatorops/thumbs/4x5/thumb-4x5-01.jpg",
+  "/creatorops/thumbs/4x5/thumb-4x5-02.jpg",
+  "/creatorops/thumbs/4x5/thumb-4x5-03.jpg",
+  "/creatorops/thumbs/4x5/thumb-4x5-04.jpg",
+  "/creatorops/thumbs/4x5/thumb-4x5-05.jpg",
+  "/creatorops/thumbs/4x5/thumb-4x5-06.jpg",
+] as const;
 
 export default function Marketing() {
   const [activeSection, setActiveSection] = useState<LandingSectionId>("top");
@@ -863,6 +899,24 @@ export default function Marketing() {
     return () => mq?.removeEventListener?.("change", apply);
   }, []);
 
+  const shellClass = SHELL_CLASS;
+
+  const getRevealProps = (delay = 0, distance = 28) =>
+    reducedMotion
+      ? {
+          initial: false as const,
+        }
+      : {
+          initial: { opacity: 0, y: distance, filter: "blur(10px)" },
+          whileInView: { opacity: 1, y: 0, filter: "blur(0px)" },
+          viewport: { once: true, amount: 0.2 },
+          transition: {
+            duration: 0.9,
+            delay,
+            ease: [0.22, 1, 0.36, 1] as const,
+          },
+        };
+
      // Ensure refresh/mount starts at top (override browser scroll restoration for this page)
   useEffect(() => {
     const prev = window.history.scrollRestoration;
@@ -874,7 +928,7 @@ export default function Marketing() {
 
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
-    // If a hash is present (e.g. #output), clear it so refresh never “jumps down”.
+    // If a hash is present (e.g. #output), clear it so refresh never "jumps down".
     // Rail navigation stays internal; we intentionally keep the URL clean.
     if (window.location.hash) {
       try {
@@ -993,7 +1047,7 @@ export default function Marketing() {
     };
   }, [reducedMotion]);
 
-  const railIsDark = activeSection === "top" || activeSection === "modules";
+  const railIsDark = activeSection === "top" || activeSection === "system-logic";
   const railShell = railIsDark
     ? "border-white/10 bg-black/30 text-white/70"
     : "border-black/10 bg-white/70 text-black/60";
@@ -1011,8 +1065,8 @@ export default function Marketing() {
         <div
   className={[
     "rounded-full border p-2 backdrop-blur",
-    "w-[40px] overflow-visible",              // slim “line”, tooltip can overflow
-    "transition-colors duration-500 ease-out", // smooth dark↔light
+    "w-[40px] overflow-visible",              // slim line, tooltip can overflow
+    "transition-colors duration-500 ease-out", // smooth dark->light
     railShell,
   ].join(" ")}
 >
@@ -1048,147 +1102,338 @@ export default function Marketing() {
       </div>
 
       {/* HERO (dark) */}
-      <section id="top" className="relative overflow-hidden scroll-mt-[96px]">
-        <img
-          ref={makeParallaxRef(0.12, 1.08)}
-          src={asset("/creatorops/landing/bg-02-light.png", "/creatorops/landing/bg-01-dark.png")}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover will-change-transform"
-          draggable={false}
-          fetchPriority="high"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/25 to-black/70" />
-
-        <div className="relative mx-auto w-full max-w-[1200px] px-4 pb-16 pt-10">
-          <Reveal>
-            <header className="flex items-center justify-between">
-              <div className="text-sm text-white/70">CreatorOps</div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => scrollToSection("waitlist")}
-                  className="rounded-full bg-white/10 px-4 py-2 text-sm text-white ring-1 ring-white/15 hover:bg-white/15 pressable"
-                >
-                  Waitlist
-                </button>
-
-                <Link
-                  to="/story"
-                  className="rounded-full bg-white/10 px-4 py-2 text-sm text-white ring-1 ring-white/15 hover:bg-white/15 pressable"
-                >
-                  Story
-                </Link>
-              </div>
-            </header>
-          </Reveal>
-
-          <div className="mt-16 max-w-[620px]">
-            <Reveal delayMs={60}>
-              <h1 className="text-4xl leading-[1.05] text-white">Turn content chaos into a calm pipeline.</h1>
-            </Reveal>
-
-            <Reveal delayMs={110}>
-              <p className="mt-4 text-base text-white/65">
-                Library → Smart Mix → Sequence → Planner → Captions → Export. Minimal guardrails. Real time saved.
-              </p>
-            </Reveal>
-
-            <Reveal delayMs={160}>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Link to="/prototype" className="rounded-full bg-white px-5 py-2.5 text-sm text-black hover:bg-white/90 pressable">
-                  Start demo
-                </Link>
-
-                <Link
-                  to="/story"
-                  className="rounded-full bg-white/10 px-5 py-2.5 text-sm text-white ring-1 ring-white/15 hover:bg-white/15 pressable"
-                >
-                  Watch story
-                </Link>
-              </div>
-            </Reveal>
-
-            <Reveal delayMs={220}>
-              <div className="mt-10 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70 ring-1 ring-white/10">
-                Investor/demo-ready prototype • Offline • Premium minimal
-              </div>
-            </Reveal>
-          </div>
+      <section id="top" className="relative overflow-hidden border-b border-white/8 bg-[#06080d]">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_28%,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_72%_32%,rgba(130,150,255,0.08),transparent_26%),radial-gradient(circle_at_52%_78%,rgba(255,255,255,0.06),transparent_24%)]" />
+          <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] [background-size:120px_120px]" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-[#071019]/80" />
         </div>
-      </section>
 
-      {/* MODULES (dark) */}
-      <section id="modules" className="relative bg-[#0b0f15] scroll-mt-[96px]">
-        <div className="mx-auto w-full max-w-[1200px] px-4 py-16">
-          <div className="grid gap-10 lg:grid-cols-12">
-            <div className="lg:col-span-5">
-              <Reveal>
-                <div className="text-sm text-white/70">How it works</div>
-                <h2 className="mt-2 text-2xl text-white">A simple flow. One system.</h2>
-                <p className="mt-3 text-sm text-white/60">
-                  The prototype shows the full pipeline end-to-end. Smart Mix is the core: it proposes ranked candidates,
-                  you pick the best, then everything downstream stays consistent.
-                </p>
-              </Reveal>
+        <div className={[shellClass, "grid grid-cols-1 gap-14 pb-20 pt-10 lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] lg:items-center lg:gap-18 lg:pb-24 lg:pt-14"].join(" ")}>
+          <motion.div className="max-w-[560px]" {...getRevealProps(0.04, 26)}>
+            <div className="mb-6 flex items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/55">
+                CreatorOps
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/45">
+                Premium prototype
+              </span>
+            </div>
 
-              <Reveal delayMs={80}>
-                <div className="mt-6 space-y-3">
-                  {MODULES.map((m) => (
-                    <div key={m.title} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <div className="text-sm text-white">{m.title}</div>
-                      <div className="mt-1 text-sm text-white/60">{m.desc}</div>
+            <h1 className="max-w-[11ch] text-[clamp(2.8rem,5.6vw,5.5rem)] font-medium leading-[0.92] tracking-[-0.05em] text-white">
+              Turn content chaos into a calm pipeline.
+            </h1>
+
+            <p className="mt-6 max-w-[38rem] text-[15px] leading-7 text-white/62 md:text-[16px]">
+              Library &gt; Smart Mix &gt; Sequence &gt; Planner &gt; Captions &gt; Export &gt; Bio Builder.
+              One quiet system that turns scattered content into a cleaner publishing outcome.
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a
+                href="/prototype/library"
+                className="inline-flex items-center rounded-full bg-white px-5 py-3 text-[14px] font-medium text-black transition hover:bg-white/90"
+              >
+                Start demo
+              </a>
+
+              <a
+                href="/story"
+                className="inline-flex items-center rounded-full border border-white/12 bg-white/6 px-5 py-3 text-[14px] font-medium text-white/88 transition hover:bg-white/10"
+              >
+                Watch story
+              </a>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-2">
+              {HERO_STATS.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white/55"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-10 grid gap-3 sm:grid-cols-2">
+              {HERO_FLOW.map((item, index) => (
+                <div
+                  key={item.title}
+                  className="rounded-[20px] border border-white/10 bg-white/[0.045] p-4 backdrop-blur-sm transition duration-500 hover:-translate-y-1 hover:border-white/18 hover:bg-white/[0.065] hover:shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-[12px] uppercase tracking-[0.18em] text-white/35">
+                      0{index + 1}
+                    </span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-white/25" />
+                  </div>
+                  <div className="text-[15px] font-medium text-white">{item.title}</div>
+                  <p className="mt-2 text-[13px] leading-6 text-white/48">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div className="relative" {...getRevealProps(0.16, 34)}>
+            <div className="pointer-events-none absolute -inset-10 rounded-[48px] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.11),transparent_58%)] blur-3xl" />
+
+            <div className="relative mx-auto max-w-[700px]">
+              <div className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
+                <div className="co-motion-card rounded-[30px] border border-white/10 bg-[#0b1119]/88 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
+                        Product preview
+                      </div>
+                      <div className="mt-1 text-[18px] font-medium text-white">
+                        Calm output, not more noise.
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </Reveal>
+                    <div className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] text-white/55">
+                      Export-ready
+                    </div>
+                  </div>
 
-              <Reveal delayMs={140}>
-                <div className="mt-7 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection("output")}
-                    className="rounded-full bg-white/10 px-5 py-2.5 text-sm text-white ring-1 ring-white/15 hover:bg-white/15 pressable"
-                  >
-                    See output
-                  </button>
+                  <div className="grid grid-cols-3 gap-3">
+                    {HERO_PREVIEW_IMAGES.map((src, index) => (
+                      <div
+                        key={src}
+                        className="group relative aspect-[4/5] overflow-hidden rounded-[18px] border border-white/8 bg-white/5"
+                      >
+                        <img
+                          src={src}
+                          alt={`Preview ${index + 1}`}
+                          className="co-motion-image h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                        />
+                        <div className="absolute left-2 top-2 rounded-full border border-white/10 bg-black/35 px-2 py-1 text-[10px] font-medium text-white/80 backdrop-blur-sm">
+                          0{index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection("waitlist")}
-                    className="rounded-full bg-white/5 px-5 py-2.5 text-sm text-white/80 ring-1 ring-white/10 hover:bg-white/10 pressable"
-                  >
-                    Join waitlist
-                  </button>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/50">
+                      ordered grid
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/50">
+                      captions + CSV
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/50">
+                      profile handoff
+                    </span>
+                  </div>
                 </div>
-              </Reveal>
+
+                <div className="flex flex-col gap-4">
+                  <div className="co-motion-card-slow co-motion-delay-1 rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
+                      Smart Mix
+                    </div>
+                    <div className="mt-2 text-[24px] font-medium tracking-[-0.03em] text-white">
+                      4
+                    </div>
+                    <div className="mt-1 text-[13px] leading-6 text-white/46">
+                      ranked candidates with balance guardrails and duplicate avoidance.
+                    </div>
+                  </div>
+
+                  <div className="co-motion-card-slow co-motion-delay-2 rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
+                      Bio Builder
+                    </div>
+                    <div className="mt-2 text-[15px] font-medium text-white">
+                      Carry the selected pack into a profile simulator.
+                    </div>
+                    <p className="mt-2 text-[13px] leading-6 text-white/46">
+                      Use the final pack as the visual base for a cleaner profile direction.
+                    </p>
+                  </div>
+
+                  <div className="co-motion-card-slow co-motion-delay-3 rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
+                      System signal
+                    </div>
+                    <p className="mt-2 text-[13px] leading-6 text-white/48">
+                      Minimal guardrails upstream. Faster approval downstream.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            <div className="lg:col-span-7">
-              <Reveal delayMs={80}>
-                <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-sm">
-                  <img
-                    src="/creatorops/landing/shot-01-dark.png"
-                    alt=""
-                    className="h-full w-full object-cover"
-                    draggable={false}
-                  />
-                </div>
-              </Reveal>
-
-              <Reveal delayMs={140}>
-                <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/55">
-                  <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">ranked candidates</span>
-                  <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">guardrails</span>
-                  <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">3×3 feed grid</span>
-                </div>
-              </Reveal>
-            </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* TRANSITION (dark → light) */}
+      <motion.section
+        id="system-logic"
+        className="relative overflow-hidden border-y border-white/[0.07] bg-[#06080d] px-6 py-28 md:px-10 lg:px-14 lg:py-40"
+        initial={
+          reducedMotion
+            ? { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }
+            : { opacity: 0, y: 72, scale: 0.985, filter: "blur(12px)" }
+        }
+        whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+        viewport={{ once: true, amount: 0.22 }}
+        transition={{ duration: reducedMotion ? 0 : 1.05, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_30%,rgba(255,255,255,0.075),transparent_30%),radial-gradient(circle_at_74%_38%,rgba(255,255,255,0.045),transparent_28%),radial-gradient(circle_at_52%_100%,rgba(255,255,255,0.08),transparent_34%)]" />
+          <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:160px_160px]" />
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent via-[#06080d]/60 to-[#080d12]" />
+        </div>
+
+        <div className={[shellClass, "grid gap-20 lg:grid-cols-[0.94fr_1.06fr] lg:items-start lg:gap-28"].join(" ")}>
+          <motion.div {...getRevealProps(0.04, 24)}>
+            <div className="mb-7 inline-flex rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/42">
+              Operating logic
+            </div>
+
+            <h2 className="max-w-[11ch] text-[clamp(2.7rem,5vw,5.9rem)] font-medium leading-[0.88] tracking-[-0.065em] text-white">
+              The calm is in the guardrails.
+            </h2>
+
+            <p className="mt-7 max-w-[30rem] text-[15px] leading-7 text-white/52">
+              CreatorOps reduces the decision field before export. Fewer choices, cleaner rhythm, clearer handoff.
+            </p>
+
+            <div className="mt-10 h-px w-full max-w-[30rem] bg-gradient-to-r from-white/22 via-white/8 to-transparent" />
+
+            <div className="mt-10 grid max-w-[34rem] gap-7">
+              <div className="group grid grid-cols-[42px_1fr] gap-4">
+                <div className="relative flex justify-center">
+                  <div className="h-8 w-8 rounded-full border border-white/12 bg-white/[0.035] text-center text-[11px] leading-8 text-white/50">
+                    01
+                  </div>
+                  <div className="absolute top-9 h-full w-px bg-gradient-to-b from-white/16 to-transparent" />
+                </div>
+
+                <div className="pb-5">
+                  <div className="text-[15px] font-medium text-white">Reduce the field</div>
+                  <p className="mt-2 text-[13px] leading-6 text-white/46">
+                    The user does not sort an endless library. The system narrows input into a usable creative set.
+                  </p>
+                </div>
+              </div>
+
+              <div className="group grid grid-cols-[42px_1fr] gap-4">
+                <div className="relative flex justify-center">
+                  <div className="h-8 w-8 rounded-full border border-white/12 bg-white/[0.035] text-center text-[11px] leading-8 text-white/50">
+                    02
+                  </div>
+                  <div className="absolute top-9 h-full w-px bg-gradient-to-b from-white/16 to-transparent" />
+                </div>
+
+                <div className="pb-5">
+                  <div className="text-[15px] font-medium text-white">Expose the reason</div>
+                  <p className="mt-2 text-[13px] leading-6 text-white/46">
+                    Smart Mix keeps the logic visible: balance, variety, duplicate avoidance, and readiness.
+                  </p>
+                </div>
+              </div>
+
+              <div className="group grid grid-cols-[42px_1fr] gap-4">
+                <div className="flex justify-center">
+                  <div className="h-8 w-8 rounded-full border border-white/12 bg-white/[0.035] text-center text-[11px] leading-8 text-white/50">
+                    03
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[15px] font-medium text-white">Ship one contract</div>
+                  <p className="mt-2 text-[13px] leading-6 text-white/46">
+                    The final state becomes a downloadable pack: ordered images, captions, CSV, manifest, and profile handoff.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div className="relative min-h-[700px] lg:min-h-[680px]" {...getRevealProps(0.18, 30)}>
+            <div className="pointer-events-none absolute inset-0">
+              <div className="co-motion-line absolute left-[8%] top-[16%] h-[68%] w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+              <div className="co-motion-line absolute left-[8%] top-[48%] h-px w-[82%] bg-gradient-to-r from-white/12 via-white/7 to-transparent" />
+              <div className="co-motion-line absolute left-[30%] top-[29%] h-px w-[48%] rotate-[-14deg] bg-gradient-to-r from-transparent via-white/7 to-transparent" />
+              <div className="co-motion-line absolute left-[38%] top-[71%] h-px w-[42%] rotate-[11deg] bg-gradient-to-r from-transparent via-white/7 to-transparent" />
+
+              <div className="co-motion-dot absolute left-[4%] top-[45%] h-3 w-3 rounded-full border border-white/16 bg-white/[0.035] shadow-[0_0_42px_rgba(255,255,255,0.15)]" />
+              <div className="co-motion-dot absolute left-[48%] top-[25%] h-2 w-2 rounded-full bg-white/20 shadow-[0_0_34px_rgba(255,255,255,0.16)]" />
+              <div className="co-motion-dot absolute right-[10%] top-[48%] h-3 w-3 rounded-full border border-white/14 bg-white/[0.032] shadow-[0_0_46px_rgba(255,255,255,0.14)]" />
+              <div className="co-motion-dot absolute left-[54%] bottom-[14%] h-2 w-2 rounded-full bg-white/18 shadow-[0_0_32px_rgba(255,255,255,0.14)]" />
+
+              <div className="co-motion-glow absolute left-[10%] top-[16%] h-52 w-52 rounded-full bg-white/[0.025] blur-3xl" />
+              <div className="co-motion-glow absolute right-[4%] top-[38%] h-64 w-64 rounded-full bg-white/[0.02] blur-3xl" />
+              <div className="co-motion-glow absolute left-[28%] bottom-[6%] h-56 w-56 rounded-full bg-white/[0.018] blur-3xl" />
+            </div>
+
+            <div className="absolute left-[0%] top-[4%] max-w-[18rem]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-white/26">
+                Input field
+              </div>
+              <div className="mt-4 text-[20px] font-medium leading-[1.02] tracking-[-0.04em] text-white/84">
+                Many assets enter.
+              </div>
+              <p className="mt-4 text-[13px] leading-6 text-white/38">
+                The system keeps only the signals strong enough to shape a week.
+              </p>
+            </div>
+
+            <div className="absolute right-[0%] top-[34%] max-w-[20rem]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-white/26">
+                Guardrail layer
+              </div>
+              <div className="mt-4 text-[20px] font-medium leading-[1.02] tracking-[-0.04em] text-white/84">
+                Noise is reduced before planning.
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center gap-3 text-[12px] text-white/42">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white/22" />
+                  <span>No near-duplicates</span>
+                </div>
+                <div className="flex items-center gap-3 text-[12px] text-white/42">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white/22" />
+                  <span>Balanced rhythm</span>
+                </div>
+                <div className="flex items-center gap-3 text-[12px] text-white/42">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white/22" />
+                  <span>Explainable pick</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-[2%] left-[22%] max-w-[25rem]">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-white/26">
+                Output contract
+              </div>
+              <div className="mt-4 text-[26px] font-medium leading-[1] tracking-[-0.05em] text-white/90">
+                One clean pack leaves.
+              </div>
+              <p className="mt-4 text-[13px] leading-6 text-white/40">
+                Ordered images, captions, CSV, manifest, and profile handoff become a single exportable outcome.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[11px] text-white/42">
+                  images
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[11px] text-white/42">
+                  captions
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[11px] text-white/42">
+                  CSV
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[11px] text-white/42">
+                  bio
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </motion.section>
+
+      {/* TRANSITION (dark -> light) */}
 <section className="relative -mt-[2px] -mb-[2px] overflow-hidden bg-[#f5f5f7]">
   <div className="absolute inset-0">
     <img
@@ -1202,19 +1447,19 @@ export default function Marketing() {
 
     {/* TOP CAP: makes the very start identical to the dark section above (kills the hard seam) */}
     <div className="absolute inset-x-0 top-0 h-[180px] bg-[#0b0f15]" />
-    {/* TOP FEATHER: slowly reveals the bridge image (restores “as was” smoothness) */}
+    {/* TOP FEATHER: slowly reveals the bridge image (restores as was smoothness) */}
     <div className="absolute inset-x-0 top-0 h-[520px] bg-gradient-to-b from-[#0b0f15] via-[#0b0f15]/75 to-transparent" />
 
-    {/* Global dark→light wash (keeps the premium falloff) */}
+    {/* Global dark->light wash (keeps the premium falloff) */}
     <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#0b0f15_0%,rgba(11,15,21,0.92)_28%,rgba(11,15,21,0.55)_52%,rgba(245,245,247,0)_78%,rgba(245,245,247,0)_100%)]" />
 
     {/* Bottom feather to match Roadmap canvas (keep what we already fixed) */}
     <div className="absolute inset-x-0 bottom-0 h-[360px] bg-gradient-to-b from-transparent via-[#f5f5f7]/85 to-[#f5f5f7]" />
   </div>
 
-  <div className="relative mx-auto w-full max-w-[1200px] px-4">
+  <div className={shellClass}>
     <div className="min-h-[92svh] py-24 flex items-center">
-      <div className="max-w-[560px]">
+      <motion.div className="max-w-[560px]" {...getRevealProps(0.04, 22)}>
         <div className="text-sm text-white/70">From chaos to system</div>
         <h2 className="mt-2 text-3xl tracking-tight text-white md:text-4xl">
           Same assets. Better structure.
@@ -1222,7 +1467,7 @@ export default function Marketing() {
         <p className="mt-3 text-sm leading-relaxed text-white/65">
           CreatorOps keeps decisions upstream (Smart Mix) so the rest becomes calm execution.
         </p>
-      </div>
+      </motion.div>
     </div>
   </div>
 
@@ -1237,7 +1482,7 @@ export default function Marketing() {
 
       {/* WAITLIST */}
 <section id="waitlist" className="bg-[#f5f5f7] text-black scroll-mt-[96px]">
-  <div className="mx-auto w-full max-w-[1200px] px-4 pb-20">
+  <div className={[shellClass, "pb-20"].join(" ")}>
     <motion.div
       initial={
         reducedMotion
@@ -1258,11 +1503,11 @@ export default function Marketing() {
       style={{ willChange: "transform, opacity, filter" }}
     >
       <div className="grid gap-10 lg:grid-cols-12">
-        <div className="lg:col-span-5">
+        <motion.div className="lg:col-span-5" {...getRevealProps(0.04, 22)}>
           <div className="text-sm text-black/60">Next</div>
           <h2 className="mt-2 text-2xl text-black">Join the waitlist.</h2>
           <p className="mt-3 text-sm text-black/55">
-            We’ll validate the loop (time saved + output quality), then ship beta access.
+            We'll validate the loop (time saved + output quality), then ship beta access.
           </p>
 
           <ul className="mt-6 space-y-2 text-sm text-black/65">
@@ -1279,11 +1524,11 @@ export default function Marketing() {
               <span>First invite when scheduling/publishing lands</span>
             </li>
           </ul>
-        </div>
+        </motion.div>
 
-        <div className="lg:col-span-7">
+        <motion.div className="lg:col-span-7" {...getRevealProps(0.14, 24)}>
           <WaitlistForm />
-        </div>
+        </motion.div>
       </div>
     </motion.div>
   </div>
@@ -1291,10 +1536,10 @@ export default function Marketing() {
 
       {/* FOOTER */}
       <footer className="bg-[#f5f5f7]">
-        <div className="mx-auto w-full max-w-[1200px] px-4 pb-10">
+        <div className={[shellClass, "pb-10"].join(" ")}>
           <Reveal>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-black/10 bg-white/70 px-6 py-4 text-sm text-black/60 backdrop-blur">
-              <div>CreatorOps — prototype (offline demo)</div>
+              <div>CreatorOps - prototype (offline demo)</div>
               <div className="flex items-center gap-4">
                 <Link to="/story" className="hover:text-black">
                   Story
@@ -1313,3 +1558,5 @@ export default function Marketing() {
     </div>
   );
 }
+
+
