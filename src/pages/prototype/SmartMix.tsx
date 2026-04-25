@@ -21,32 +21,28 @@ function scoreValue(value?: number) {
   return Math.max(0, Math.min(100, Math.round(value ?? 0)));
 }
 
-function ScoreBar(props: { label: string; value?: number }) {
-  const value = scoreValue(props.value);
-
-  return (
-    <div className="min-w-0">
-      <div className="flex items-center justify-between gap-3 text-[11px] text-[color:var(--co-muted)]">
-        <span className="truncate">{props.label}</span>
-        <span className="font-mono text-[color:var(--co-text)]/72">{value}</span>
-      </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[color:var(--co-surface)]">
-        <div className="h-full rounded-full bg-[color:var(--co-text)]/70" style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
-}
-
 function recommendationFor(mix: Mix) {
   return mix.recommendation || (scoreValue(mix.overallScore ?? mix.score) >= 80 ? "Balanced visual set" : "Good base, needs one replacement");
+}
+
+function shortReasonFor(mix?: Mix) {
+  const reasons = mix?.reasons?.filter(Boolean) ?? [];
+
+  if (reasons.length >= 2) {
+    return `${reasons[0]} ${reasons[1]}`;
+  }
+
+  if (reasons.length === 1) {
+    return reasons[0];
+  }
+
+  return "Balanced rhythm. Ready for captions and export.";
 }
 
 export default function SmartMix() {
   const nav = useNavigate();
   const [status, setStatus] = useState("Ready");
 
-  const assets = usePrototypeStore((s) => s.assets);
-  const selectedAssetIds = usePrototypeStore((s) => s.selectedAssetIds);
   const mixes = usePrototypeStore((s) => s.mixes);
   const bestMixId = usePrototypeStore((s) => s.bestMixId);
   const lockedSlots = usePrototypeStore((s) => s.lockedSlots);
@@ -60,18 +56,6 @@ export default function SmartMix() {
   const activeMix = useMemo(() => {
     return mixes.find((mix) => mix.id === bestMixId) ?? mixes[0];
   }, [mixes, bestMixId]);
-
-  const selectedReady45Count = useMemo(() => {
-    return selectedAssetIds
-      .map((id) => getAssetById(id))
-      .filter((asset) => asset?.status === "ready" && asset?.ratio === "4:5").length;
-  }, [selectedAssetIds, getAssetById]);
-
-  const ready45Count = useMemo(() => {
-    return assets.filter((asset) => asset.status === "ready" && asset.ratio === "4:5").length;
-  }, [assets]);
-
-  const activeReasons = activeMix?.reasons?.slice(0, 3) ?? [];
 
   const onReplaceTile = (mixId: string, slotIndex: number) => {
     const replaced = replaceMixTile(mixId, slotIndex);
@@ -125,7 +109,7 @@ export default function SmartMix() {
           ) : null}
         </div>
 
-        <div className="absolute inset-x-1 bottom-1 flex flex-wrap gap-1 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+        <div className="absolute inset-x-1 bottom-1 flex flex-wrap gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
           <button
             type="button"
             onClick={() => {
@@ -197,20 +181,29 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 shadow-sm sm:p-4">
+      <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-xs text-[color:var(--co-muted)]">Active candidate</div>
-              <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2 py-0.5 text-xs text-[color:var(--co-text)]/78">
+              <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                Active candidate
+              </span>
+
+              <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/78">
                 {scoreValue(activeMix?.overallScore ?? activeMix?.score)} / 100
               </span>
-              <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2 py-0.5 text-xs text-[color:var(--co-muted)]">
+
+              <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2.5 py-1 text-xs text-[color:var(--co-muted)]">
                 {Object.keys(lockedSlots ?? {}).length} locked
               </span>
             </div>
-            <div className="mt-2 text-sm font-medium text-[color:var(--co-text)]">
+
+            <div className="mt-3 text-sm font-medium text-[color:var(--co-text)]">
               {activeMix ? recommendationFor(activeMix) : "Choose a candidate"}
+            </div>
+
+            <div className="mt-1 max-w-[46rem] text-[12px] leading-5 text-[color:var(--co-muted)]">
+              {shortReasonFor(activeMix)}
             </div>
           </div>
 
@@ -218,67 +211,49 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
             {status}
           </div>
         </div>
-
-        <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
-          <div className="flex flex-wrap gap-1.5">
-            {activeReasons.map((reason) => (
-              <span
-                key={reason}
-                className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2 py-1 text-xs text-[color:var(--co-muted)]"
-              >
-                {reason}
-              </span>
-            ))}
-            {activeMix?.weakness ? (
-              <span className="rounded-full border border-[color:var(--co-border)] bg-transparent px-2 py-1 text-xs text-[color:var(--co-muted)]">
-                {activeMix.weakness}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="text-[12px] leading-5 text-[color:var(--co-muted)] md:text-right">
-            {selectedReady45Count < 9
-              ? `Selected ready 4:5 assets: ${selectedReady45Count}/9. The prototype is filling from ${ready45Count} ready demo assets.`
-              : "Selection is strong enough for full local mix scoring."}
-          </div>
-        </div>
       </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
-        {mixes.map((mix) => {
+        {mixes.map((mix, mixIndex) => {
           const isBest = mix.id === bestMixId;
           const overall = scoreValue(mix.overallScore ?? mix.score);
+          const recommendation = recommendationFor(mix);
+          const reason = shortReasonFor(mix);
 
           return (
             <div
               key={mix.id}
               className={[
-                "min-w-0 rounded-3xl border bg-[color:var(--co-surface-2)] p-3 shadow-sm sm:p-4",
-                isBest ? "border-[color:var(--co-text)]/22" : "border-[color:var(--co-border)]",
+                "min-w-0 rounded-3xl border bg-[color:var(--co-surface-2)] p-4 shadow-sm",
+                isBest ? "border-[color:var(--co-text)]/24" : "border-[color:var(--co-border)]",
               ].join(" ")}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="text-xs text-[color:var(--co-muted)]">Score</div>
-                    <SoftScoreDots scoreDots={mix.scoreDots} />
-                    <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-0.5 text-xs text-[color:var(--co-text)]/80">
+                    <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                      Candidate {String(mixIndex + 1).padStart(2, "0")}
+                    </span>
+
+                    <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/78">
                       {overall}
                     </span>
-                    {mix.duplicateRisk !== "Low" ? (
-                      <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-0.5 text-xs text-[color:var(--co-muted)]">
-                        {mix.duplicateRisk} risk
-                      </span>
-                    ) : null}
+
+                    <SoftScoreDots scoreDots={mix.scoreDots} />
+
                     {isBest ? (
-                      <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-0.5 text-xs text-[color:var(--co-text)]/80">
+                      <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/78">
                         Selected
                       </span>
                     ) : null}
                   </div>
 
                   <div className="mt-2 text-sm font-medium text-[color:var(--co-text)]">
-                    {recommendationFor(mix)}
+                    {recommendation}
+                  </div>
+
+                  <div className="mt-1 max-w-[30rem] text-[12px] leading-5 text-[color:var(--co-muted)]">
+                    {reason}
                   </div>
                 </div>
 
@@ -304,40 +279,12 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                 </div>
               </div>
 
-              <div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,210px)]">
-                <div className="grid min-w-0 grid-cols-3 gap-2">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="min-w-0">
-                      {renderTile(mix, i)}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="min-w-0 space-y-3">
-                  <div className="grid gap-2">
-                    <ScoreBar label="Rhythm" value={mix.rhythmScore ?? overall} />
-                    <ScoreBar label="Variety" value={mix.varietyScore ?? overall} />
-                    <ScoreBar label="Balance" value={mix.balanceScore ?? overall} />
-                    <ScoreBar label="Readiness" value={mix.readinessScore ?? overall} />
+              <div className="mt-4 grid min-w-0 grid-cols-3 gap-2">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <div key={i} className="min-w-0">
+                    {renderTile(mix, i)}
                   </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {mix.reasons.slice(0, 4).map((reason) => (
-                      <span
-                        key={reason}
-                        className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-1 text-xs text-[color:var(--co-muted)]"
-                      >
-                        {reason}
-                      </span>
-                    ))}
-                  </div>
-
-                  {mix.weakness ? (
-                    <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-2 text-[12px] leading-5 text-[color:var(--co-muted)]">
-                      {mix.weakness}
-                    </div>
-                  ) : null}
-                </div>
+                ))}
               </div>
             </div>
           );
