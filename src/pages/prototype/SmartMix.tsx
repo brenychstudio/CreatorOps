@@ -4,12 +4,12 @@ import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
 import { usePrototypeStore, type Mix } from "../../store/prototypeStore";
 
-function SoftScoreDots({ scoreDots }: { scoreDots: 1 | 2 | 3 }) {
-  const on = "bg-[color:var(--co-text)]/80";
+function SoftScoreDots({ scoreDots = 1 }: { scoreDots?: number }) {
+  const on = "bg-[color:var(--co-text)]/72";
   const off = "bg-[color:var(--co-border)]";
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1" aria-hidden="true">
       <span className={`h-1.5 w-1.5 rounded-full ${scoreDots >= 1 ? on : off}`} />
       <span className={`h-1.5 w-1.5 rounded-full ${scoreDots >= 2 ? on : off}`} />
       <span className={`h-1.5 w-1.5 rounded-full ${scoreDots >= 3 ? on : off}`} />
@@ -22,26 +22,17 @@ function scoreValue(value?: number) {
 }
 
 function recommendationFor(mix: Mix) {
-  return mix.recommendation || (scoreValue(mix.overallScore ?? mix.score) >= 80 ? "Balanced visual set" : "Good base, needs one replacement");
-}
-
-function shortReasonFor(mix?: Mix) {
-  const reasons = mix?.reasons?.filter(Boolean) ?? [];
-
-  if (reasons.length >= 2) {
-    return `${reasons[0]} ${reasons[1]}`;
-  }
-
-  if (reasons.length === 1) {
-    return reasons[0];
-  }
-
-  return "Balanced rhythm. Ready for captions and export.";
+  return (
+    mix.recommendation ||
+    (scoreValue(mix.overallScore ?? mix.score) >= 80
+      ? "Balanced visual set"
+      : "Needs one replacement")
+  );
 }
 
 export default function SmartMix() {
   const nav = useNavigate();
-  const [status, setStatus] = useState("Ready");
+  const [, setStatus] = useState("Ready");
 
   const mixes = usePrototypeStore((s) => s.mixes);
   const bestMixId = usePrototypeStore((s) => s.bestMixId);
@@ -97,17 +88,13 @@ export default function SmartMix() {
           <div className="h-full w-full bg-[color:var(--co-surface)]" />
         )}
 
-        <div className="pointer-events-none absolute left-2 top-2 flex flex-wrap gap-1">
-          {locked ? (
-            <span className="rounded-full border border-white/15 bg-black/50 px-2 py-0.5 text-[10px] text-white/82 backdrop-blur">
-              Locked
+        {locked || weak ? (
+          <div className="pointer-events-none absolute left-2 top-2">
+            <span className="rounded-full border border-white/12 bg-black/45 px-2 py-0.5 text-[10px] text-white/72 backdrop-blur">
+              {locked ? "Locked" : "Weak"}
             </span>
-          ) : weak ? (
-            <span className="rounded-full border border-white/15 bg-black/45 px-2 py-0.5 text-[10px] text-white/70 backdrop-blur">
-              Weak
-            </span>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="absolute inset-x-1 bottom-1 flex flex-wrap gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
           <button
@@ -156,7 +143,7 @@ export default function SmartMix() {
         <div className="min-w-0">
           <div className="text-base text-[color:var(--co-text)]">Smart Mix</div>
           <div className="mt-1 text-sm text-[color:var(--co-muted)]">
-            Ranked 3x3 candidates with local scoring and editable guardrails.
+            Pick the strongest 3x3 set. Guardrails stay behind the interface.
           </div>
         </div>
 
@@ -181,44 +168,11 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
-                Active candidate
-              </span>
-
-              <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/78">
-                {scoreValue(activeMix?.overallScore ?? activeMix?.score)} / 100
-              </span>
-
-              <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2.5 py-1 text-xs text-[color:var(--co-muted)]">
-                {Object.keys(lockedSlots ?? {}).length} locked
-              </span>
-            </div>
-
-            <div className="mt-3 text-sm font-medium text-[color:var(--co-text)]">
-              {activeMix ? recommendationFor(activeMix) : "Choose a candidate"}
-            </div>
-
-            <div className="mt-1 max-w-[46rem] text-[12px] leading-5 text-[color:var(--co-muted)]">
-              {shortReasonFor(activeMix)}
-            </div>
-          </div>
-
-          <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-            {status}
-          </div>
-        </div>
-      </div>
-
       <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
         {mixes.map((mix, mixIndex) => {
           const isBest = mix.id === bestMixId;
           const overall = scoreValue(mix.overallScore ?? mix.score);
           const recommendation = recommendationFor(mix);
-          const reason = shortReasonFor(mix);
 
           return (
             <div
@@ -228,53 +182,49 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                 isBest ? "border-[color:var(--co-text)]/24" : "border-[color:var(--co-border)]",
               ].join(" ")}
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
                       Candidate {String(mixIndex + 1).padStart(2, "0")}
                     </span>
 
-                    <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/78">
+                    <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/76">
                       {overall}
                     </span>
 
                     <SoftScoreDots scoreDots={mix.scoreDots} />
 
                     {isBest ? (
-                      <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/78">
+                      <span className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-xs text-[color:var(--co-text)]/76">
                         Selected
                       </span>
                     ) : null}
                   </div>
 
-                  <div className="mt-2 text-sm font-medium text-[color:var(--co-text)]">
+                  <div className="mt-2 max-w-[15rem] truncate text-[13px] font-medium text-[color:var(--co-text)]">
                     {recommendation}
-                  </div>
-
-                  <div className="mt-1 max-w-[30rem] text-[12px] leading-5 text-[color:var(--co-muted)]">
-                    {reason}
                   </div>
                 </div>
 
-                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
                       pickBestMix(mix.id);
                       setStatus("Candidate selected");
                     }}
-                    className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
+                    className="rounded-full border border-[color:var(--co-border)] bg-transparent px-2.5 py-1 text-[11px] text-[color:var(--co-text)]/82 hover:bg-[color:var(--co-surface)] pressable"
                   >
-                    Pick as best
+                    Pick
                   </button>
 
                   <button
                     type="button"
                     onClick={() => onReplaceWeak(mix.id)}
-                    className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
+                    className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-[11px] text-[color:var(--co-text)]/82 hover:opacity-90 pressable"
                   >
-                    Replace weak
+                    Replace
                   </button>
                 </div>
               </div>

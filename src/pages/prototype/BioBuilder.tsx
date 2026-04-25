@@ -485,12 +485,6 @@ export default function BioBuilder() {
     return suffix ? `creatorops-bio-pack-${suffix}.txt` : "creatorops-bio-pack.txt";
   }, [generatedProfile.displayName, generatedProfile.handle]);
 
-  const modeDescription = hasConnectedExportPack
-    ? usingUploadedGrid
-      ? "Upload grid override active. Clear it to return to the current export pack."
-      : "Using current export pack"
-    : "Standalone mode. Upload a grid or use demo assets.";
-
   useEffect(() => {
     return () => {
       if (avatarObjectUrl) {
@@ -626,26 +620,6 @@ export default function BioBuilder() {
         <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
           MVP / Live Preview
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-3 sm:px-4">
-        <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-          {hasConnectedExportPack ? "Using current export pack" : "Standalone mode"}
-        </div>
-
-        <div className="min-w-0 flex-1 text-[12px] leading-5 text-[color:var(--co-text)]/72">
-          {modeDescription}
-        </div>
-
-        {!hasConnectedExportPack && (
-          <button
-            type="button"
-            onClick={() => navigate("/prototype/library")}
-            className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface-2)] pressable"
-          >
-            Build content pack first
-          </button>
-        )}
       </div>
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
@@ -1159,13 +1133,13 @@ export default function BioBuilder() {
                   </div>
                 </div>
 
-                <div className="mt-1 max-w-[42ch] text-[12px] leading-5 text-[color:var(--co-text)]/68">
+                <p className="mt-1 max-w-[42ch] text-[12px] leading-5 text-[color:var(--co-text)]/68 sm:whitespace-nowrap">
                   {usingUploadedGrid
                     ? "Uploaded images are driving this preview."
                     : usingExportPack
                       ? "Connected to the current CreatorOps export pack."
-                      : "Demo visuals are shown until you upload or build a pack."}
-                </div>
+                      : "Demo grid until upload or content pack."}
+                </p>
               </div>
 
               <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
