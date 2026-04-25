@@ -10,9 +10,20 @@ export type Mix = {
   id: string;
   tileIds: string[]; // 3×3 grid (9)
   score: number; // 0..100
+  overallScore: number;
+  rhythmScore: number;
+  varietyScore: number;
+  balanceScore: number;
+  readinessScore: number;
+  duplicatePenalty: number;
+  duplicateRisk: "Low" | "Medium" | "High";
   scoreDots: 1 | 2 | 3;
   hasConflict: boolean;
   reasons: string[];
+  recommendation: string;
+  weakness?: string;
+  weakSlotIndex?: number;
+  generatedAt?: string;
 };
 
 export type SequenceDay = {
@@ -58,6 +69,12 @@ type PrototypeState = {
 
   mixes: Mix[];
   bestMixId?: string;
+  selectedMixId?: string;
+  selectedMixScore?: number;
+  selectedMixReasons: string[];
+  selectedMixGeneratedAt?: string;
+  lockedSlots: Record<number, string>;
+  lockedAssetIds: string[];
 
   sequence: SequenceDay[];
   planner: PlannerSlot[];
@@ -84,6 +101,9 @@ type PrototypeState = {
   generateMixes: () => Promise<void>;
   regenerateMixes: () => Promise<void>; // alias for UI consistency
   pickBestMix: (mixId?: string) => void;
+  toggleMixSlotLock: (mixId: string, slotIndex: number) => void;
+  replaceMixTile: (mixId: string, slotIndex: number) => boolean;
+  replaceWeakMixTile: (mixId: string) => boolean;
 
   // Sequence / Planner
   buildSequenceFromBest: () => void;
@@ -197,6 +217,249 @@ function scoreDots(score: number): 1 | 2 | 3 {
   if (score >= 90) return 3;
   if (score >= 75) return 2;
   return 1;
+}
+
+function clampScore(n: number) {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function lockedAssetIdsFromSlots(lockedSlots: Record<number, string>) {
+  return unique(
+    Object.entries(lockedSlots)
+      .filter(([slot, id]) => Number(slot) >= 0 && Number(slot) < 9 && Boolean(id))
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, id]) => id)
+  );
+}
+
+function normalizeLockedSlots(lockedSlots?: Record<number, string>) {
+  const next: Record<number, string> = {};
+  for (const [slot, id] of Object.entries(lockedSlots ?? {})) {
+    const index = Number(slot);
+    if (Number.isInteger(index) && index >= 0 && index < 9 && id) next[index] = id;
+  }
+  return next;
+}
+
+function mixSelectedMeta(mix: Mix | undefined, lockedSlots: Record<number, string>) {
+  return {
+    selectedMixId: mix?.id,
+    selectedMixScore: mix?.overallScore ?? mix?.score,
+    selectedMixReasons: mix?.reasons ?? [],
+    selectedMixGeneratedAt: mix?.generatedAt,
+    lockedSlots,
+    lockedAssetIds: lockedAssetIdsFromSlots(lockedSlots),
+  };
+}
+
+function applyLockedSlotsToTileIds(
+  tileIds: string[],
+  lockedSlots: Record<number, string>,
+  poolIds: string[]
+) {
+  const out = tileIds.slice(0, 9);
+  while (out.length < 9) out.push("");
+
+  const lockedIds = new Set(Object.values(lockedSlots).filter(Boolean));
+  const used = new Set<string>();
+
+  for (const [slot, id] of Object.entries(lockedSlots)) {
+    const index = Number(slot);
+    if (index >= 0 && index < 9 && id) {
+      out[index] = id;
+      used.add(id);
+    }
+  }
+
+  for (let i = 0; i < out.length; i++) {
+    const id = out[i];
+    if (!id) continue;
+    if (lockedSlots[i] === id) continue;
+    if (lockedIds.has(id) || used.has(id)) out[i] = "";
+    else used.add(id);
+  }
+
+  const fill = [...tileIds, ...poolIds].filter((id) => id && !used.has(id));
+  let fillIndex = 0;
+
+  for (let i = 0; i < out.length; i++) {
+    if (lockedSlots[i]) continue;
+    if (out[i]) continue;
+
+    const next = fill[fillIndex++];
+    if (next) {
+      out[i] = next;
+      used.add(next);
+    }
+  }
+
+  return out.slice(0, 9);
+}
+
+function countBy<T>(items: T[]) {
+  const counts = new Map<T, number>();
+  for (const item of items) counts.set(item, (counts.get(item) ?? 0) + 1);
+  return counts;
+}
+
+function findWeakSlotIndex(
+  tileIds: string[],
+  getAssetById: (id: string) => Asset | undefined,
+  lockedSlots: Record<number, string> = {}
+) {
+  const ids = tileIds.slice(0, 9);
+  const seriesCounts = countBy(
+    ids
+      .map((id) => (id ? getAssetById(id)?.series : undefined))
+      .filter((series): series is string => Boolean(series))
+  );
+  const idCounts = countBy(ids.filter(Boolean));
+
+  let bestIndex = -1;
+  let bestRisk = -1;
+
+  for (let i = 0; i < 9; i++) {
+    if (lockedSlots[i]) continue;
+    const id = ids[i];
+    const asset = id ? getAssetById(id) : undefined;
+    const prev = ids[i - 1] ? getAssetById(ids[i - 1]!) : undefined;
+    const next = ids[i + 1] ? getAssetById(ids[i + 1]!) : undefined;
+
+    let risk = 0;
+    if (!id || !asset) risk += 80;
+    if (asset && asset.status !== "ready") risk += 35;
+    if (asset && asset.ratio !== "4:5") risk += 25;
+    if (id && (idCounts.get(id) ?? 0) > 1) risk += 45;
+    if (asset && (seriesCounts.get(asset.series) ?? 0) >= 5) risk += 20;
+    if (asset && prev?.series === asset.series) risk += 12;
+    if (asset && next?.series === asset.series) risk += 12;
+    if (asset?.analysis && (asset.analysis.brightness < 0.18 || asset.analysis.brightness > 0.86)) risk += 8;
+
+    if (risk > bestRisk) {
+      bestRisk = risk;
+      bestIndex = i;
+    }
+  }
+
+  return bestRisk > 0 ? bestIndex : ids.findIndex((_, index) => !lockedSlots[index]);
+}
+
+function scoreMixV2(
+  mix: Mix,
+  getAssetById: (id: string) => Asset | undefined,
+  lockedSlots: Record<number, string> = {}
+): Mix {
+  const tileIds = mix.tileIds.slice(0, 9);
+  const assets = tileIds.map((id) => (id ? getAssetById(id) : undefined));
+  const presentAssets = assets.filter((asset): asset is Asset => Boolean(asset));
+  const readyAssets = presentAssets.filter((asset) => asset.status === "ready");
+  const ready45Assets = readyAssets.filter((asset) => asset.ratio === "4:5");
+  const uniqueIds = unique(tileIds.filter(Boolean));
+  const missingSlots = tileIds.filter((id) => !id).length;
+  const repeatedIds = Math.max(0, tileIds.filter(Boolean).length - uniqueIds.length);
+  const seriesCounts = countBy(presentAssets.map((asset) => asset.series));
+  const seriesCount = seriesCounts.size;
+  const maxSeries = Math.max(0, ...Array.from(seriesCounts.values()));
+  const adjacent = mixV3AdjacencyStats(tileIds, getAssetById);
+  const analyzed = presentAssets.filter((asset) => Boolean(asset.analysis));
+
+  let brightnessStd = 0.12;
+  let averageFeatureDistance = 0.3;
+
+  if (analyzed.length >= 2) {
+    const brightnesses = analyzed.map((asset) => asset.analysis!.brightness);
+    const mean = brightnesses.reduce((acc, value) => acc + value, 0) / brightnesses.length;
+    brightnessStd = Math.sqrt(
+      brightnesses.reduce((acc, value) => acc + (value - mean) * (value - mean), 0) / brightnesses.length
+    );
+
+    let distance = 0;
+    let count = 0;
+    for (let i = 0; i < analyzed.length; i++) {
+      for (let j = i + 1; j < analyzed.length; j++) {
+        const a = analyzed[i]!.analysis!;
+        const b = analyzed[j]!.analysis!;
+        distance +=
+          Math.abs(a.brightness - b.brightness) * 0.9 +
+          hueDelta01(a.hue, b.hue) * 0.7 +
+          Math.abs(a.saturation - b.saturation) * 0.6 +
+          Math.abs(a.busy - b.busy) * 0.6;
+        count++;
+        if (count >= 24) break;
+      }
+      if (count >= 24) break;
+    }
+    averageFeatureDistance = count ? distance / count : averageFeatureDistance;
+  }
+
+  const readinessScore = clampScore((ready45Assets.length / 9) * 100 - missingSlots * 8);
+  const varietyScore = clampScore(
+    (uniqueIds.length / 9) * 46 +
+      (Math.min(seriesCount, 4) / 4) * 30 +
+      Math.min(1, averageFeatureDistance / 0.38) * 24 -
+      repeatedIds * 12
+  );
+  const balanceScore = clampScore(
+    100 -
+      Math.max(0, maxSeries - 4) * 16 -
+      adjacent.adjSameSeries * 4 -
+      (brightnessStd < 0.07 ? (0.07 - brightnessStd) * 180 : 0) -
+      (brightnessStd > 0.24 ? (brightnessStd - 0.24) * 120 : 0)
+  );
+  const rhythmScore = clampScore(
+    100 - adjacent.adjSameSeries * 6 - adjacent.adjTooSimilar * 10 - missingSlots * 10 - repeatedIds * 10
+  );
+  const duplicatePenalty = Math.round(repeatedIds * 12 + adjacent.adjSameSeries * 4 + adjacent.adjTooSimilar * 8);
+  const duplicateRisk: Mix["duplicateRisk"] =
+    duplicatePenalty >= 28 || repeatedIds >= 2 ? "High" : duplicatePenalty >= 12 ? "Medium" : "Low";
+  const overallScore = clampScore(
+    rhythmScore * 0.3 + varietyScore * 0.25 + balanceScore * 0.25 + readinessScore * 0.2 - duplicatePenalty * 0.35
+  );
+  const weakSlotIndex = findWeakSlotIndex(tileIds, getAssetById, lockedSlots);
+
+  const reasons: string[] = [];
+  if (rhythmScore >= 78) reasons.push("Good rhythm across the week.");
+  else reasons.push("One slot is softening the weekly rhythm.");
+  if (repeatedIds === 0) reasons.push("No repeated assets in the 3x3 set.");
+  else reasons.push("Repeated assets are lowering variety.");
+  if (balanceScore >= 76) reasons.push("Balanced mix of visual directions.");
+  else reasons.push("One visual direction is doing too much work.");
+  if (readinessScore >= 90) reasons.push("Ready for captions and export.");
+  else reasons.push("One weaker slot could be replaced.");
+
+  let recommendation = "Good base, needs one replacement";
+  if (overallScore >= 88 && rhythmScore >= 82) recommendation = "Strong weekly rhythm";
+  else if (overallScore >= 80 && balanceScore >= varietyScore) recommendation = "Balanced visual set";
+  else if (varietyScore >= 82 && readinessScore < 90) recommendation = "High variety, softer CTA";
+  else if (overallScore >= 74) recommendation = "Solid grid foundation";
+
+  const weakness =
+    duplicateRisk !== "Low"
+      ? "Duplicate or same-series clustering risk."
+      : readinessScore < 90
+        ? "One slot is less export-ready."
+        : balanceScore < 70
+          ? "Visual balance could improve."
+          : undefined;
+
+  return {
+    ...mix,
+    score: overallScore,
+    overallScore,
+    rhythmScore,
+    varietyScore,
+    balanceScore,
+    readinessScore,
+    duplicatePenalty,
+    duplicateRisk,
+    scoreDots: scoreDots(overallScore),
+    hasConflict: duplicateRisk !== "Low" || readinessScore < 80 || Boolean(mix.hasConflict),
+    reasons: reasons.slice(0, 4),
+    recommendation,
+    weakness,
+    weakSlotIndex: weakSlotIndex >= 0 ? weakSlotIndex : undefined,
+    generatedAt: mix.generatedAt ?? new Date().toISOString(),
+  };
 }
 
 // ===== Smart Mix v3: grid adjacency + similarity guard (no UI changes) =====
@@ -650,6 +913,9 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
         | "generateMixes"
         | "regenerateMixes"
         | "pickBestMix"
+        | "toggleMixSlotLock"
+        | "replaceMixTile"
+        | "replaceWeakMixTile"
         | "buildSequenceFromBest"
         | "sendSequenceToPlanner"
         | "setPlannerSlot"
@@ -666,6 +932,12 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
         uploadError: undefined,
         mixes: [],
         bestMixId: undefined,
+        selectedMixId: undefined,
+        selectedMixScore: undefined,
+        selectedMixReasons: [],
+        selectedMixGeneratedAt: undefined,
+        lockedSlots: {},
+        lockedAssetIds: [],
         sequence: Array.from({ length: 7 }, (_, dayIndex) => ({ dayIndex })),
         planner: makePlannerSkeleton(),
         captions: { tone: "Minimal", length: "Short", variants: [], hashtags: [] },
@@ -694,9 +966,18 @@ function buildMixFromPool(
       id: uid("mix"),
       tileIds: Array.from({ length: 9 }, () => ""),
       score: 10,
+      overallScore: 10,
+      rhythmScore: 0,
+      varietyScore: 0,
+      balanceScore: 0,
+      readinessScore: 0,
+      duplicatePenalty: 0,
+      duplicateRisk: "Low",
       scoreDots: 1,
       hasConflict: false,
       reasons: ["Empty pool"],
+      recommendation: "Select assets to build a mix",
+      generatedAt: new Date().toISOString(),
     };
   }
 
@@ -852,9 +1133,18 @@ function buildMixFromPool(
     id: uid("mix"),
     tileIds: reordered.slice(0, 9),
     score,
+    overallScore: score,
+    rhythmScore: score,
+    varietyScore: score,
+    balanceScore: score,
+    readinessScore: score,
+    duplicatePenalty: conflicts,
+    duplicateRisk: conflicts > 2 ? "High" : conflicts > 0 ? "Medium" : "Low",
     scoreDots: scoreDots(score),
     hasConflict: conflicts > 0,
     reasons,
+    recommendation: "Balanced visual set",
+    generatedAt: new Date().toISOString(),
   };
 }
 
@@ -1110,6 +1400,7 @@ function buildMixFromPool(
             if (!poolIds.length) return {};
 
             const seed = state.mixSeed ?? 1;
+            const lockedSlots = normalizeLockedSlots(state.lockedSlots);
             const usedGlobal = new Set<string>();
             const usedSelected = new Set<string>();
 
@@ -1126,7 +1417,9 @@ function buildMixFromPool(
               });
 
               // v3: optimize 3×3 order + apply adjacency/similarity + rhythm/variety metrics
-              const mix = mixV3PostProcessMix(raw, getAsset, seed, 700 + i * 31);
+              const processed = mixV3PostProcessMix(raw, getAsset, seed, 700 + i * 31);
+              const lockedTileIds = applyLockedSlotsToTileIds(processed.tileIds, lockedSlots, poolIds);
+              const mix = scoreMixV2({ ...processed, tileIds: lockedTileIds }, getAsset, lockedSlots);
 
               mixes.push(mix);
 
@@ -1140,12 +1433,14 @@ function buildMixFromPool(
             const noConflict = mixes.filter((m) => !m.hasConflict);
             const best = (noConflict.length ? noConflict : mixes)
               .slice()
-              .sort((a, b) => b.score - a.score)[0]?.id;
+              .sort((a, b) => (b.overallScore ?? b.score) - (a.overallScore ?? a.score))[0]?.id;
+            const bestMix = mixes.find((m) => m.id === best);
 
             const selectedAssetIds = state.selectedAssetIds;
             return {
               mixes,
               bestMixId: best,
+              ...mixSelectedMeta(bestMix, lockedSlots),
               readout: computeReadoutLite({ selectedAssetIds, mixes }),
             };
           });
@@ -1160,15 +1455,127 @@ function buildMixFromPool(
         pickBestMix: (mixId) =>
           set((state) => {
             if (!state.mixes.length) return {};
-            if (mixId && state.mixes.some((m) => m.id === mixId)) return { bestMixId: mixId };
+            const lockedSlots = normalizeLockedSlots(state.lockedSlots);
+            const requested = mixId ? state.mixes.find((m) => m.id === mixId) : undefined;
+            if (requested) {
+              return {
+                bestMixId: requested.id,
+                ...mixSelectedMeta(requested, lockedSlots),
+              };
+            }
 
             const noConflict = state.mixes.filter((m) => !m.hasConflict);
-            const best = (noConflict.length ? noConflict : state.mixes)
+            const bestMix = (noConflict.length ? noConflict : state.mixes)
               .slice()
-              .sort((a, b) => b.score - a.score)[0]?.id;
+              .sort((a, b) => (b.overallScore ?? b.score) - (a.overallScore ?? a.score))[0];
 
-            return { bestMixId: best };
+            return {
+              bestMixId: bestMix?.id,
+              ...mixSelectedMeta(bestMix, lockedSlots),
+            };
           }),
+
+        toggleMixSlotLock: (mixId, slotIndex) =>
+          set((state) => {
+            const mix = state.mixes.find((m) => m.id === mixId);
+            const assetId = mix?.tileIds[slotIndex];
+            if (!mix || !assetId) return {};
+
+            const lockedSlots = normalizeLockedSlots(state.lockedSlots);
+            if (lockedSlots[slotIndex] === assetId) delete lockedSlots[slotIndex];
+            else lockedSlots[slotIndex] = assetId;
+
+            const scoredMixes = state.mixes.map((candidate) =>
+              scoreMixV2(candidate, (id) => state.assets.find((asset) => asset.id === id), lockedSlots)
+            );
+            const selected = scoredMixes.find((candidate) => candidate.id === mixId);
+
+            return {
+              mixes: scoredMixes,
+              bestMixId: mixId,
+              ...mixSelectedMeta(selected, lockedSlots),
+            };
+          }),
+
+        replaceMixTile: (mixId, slotIndex) => {
+          let replaced = false;
+
+          set((state) => {
+            const lockedSlots = normalizeLockedSlots(state.lockedSlots);
+            if (lockedSlots[slotIndex]) return {};
+
+            const mix = state.mixes.find((candidate) => candidate.id === mixId);
+            if (!mix) return {};
+
+            const currentIds = mix.tileIds.slice(0, 9);
+            const currentId = currentIds[slotIndex];
+            const used = new Set(currentIds.filter((id, index) => Boolean(id) && index !== slotIndex));
+            const poolIds = resolveMixPool(state);
+            const selected = new Set(state.selectedAssetIds);
+            const seriesCounts = countBy(
+              currentIds
+                .map((id, index) => (index === slotIndex || !id ? undefined : state.assets.find((asset) => asset.id === id)?.series))
+                .filter((series): series is string => Boolean(series))
+            );
+
+            const candidates = poolIds
+              .map((id) => state.assets.find((asset) => asset.id === id))
+              .filter((asset): asset is Asset => Boolean(asset))
+              .filter((asset) => asset.status === "ready" && asset.ratio === "4:5")
+              .filter((asset) => asset.id !== currentId && !used.has(asset.id))
+              .sort((a, b) => {
+                const aScore =
+                  (selected.has(a.id) ? 40 : 0) -
+                  (seriesCounts.get(a.series) ?? 0) * 8 +
+                  (a.source === "upload" ? 4 : 0);
+                const bScore =
+                  (selected.has(b.id) ? 40 : 0) -
+                  (seriesCounts.get(b.series) ?? 0) * 8 +
+                  (b.source === "upload" ? 4 : 0);
+                if (bScore !== aScore) return bScore - aScore;
+                return a.id.localeCompare(b.id);
+              });
+
+            const replacement = candidates[0];
+            if (!replacement) return {};
+
+            replaced = true;
+            const nextTileIds = currentIds.slice();
+            nextTileIds[slotIndex] = replacement.id;
+
+            const getAsset = (id: string) => state.assets.find((asset) => asset.id === id);
+            const mixes = state.mixes.map((candidate) => {
+              if (candidate.id !== mixId) return scoreMixV2(candidate, getAsset, lockedSlots);
+              return scoreMixV2({ ...candidate, tileIds: nextTileIds }, getAsset, lockedSlots);
+            });
+            const selectedMix = mixes.find((candidate) => candidate.id === mixId);
+
+            return {
+              mixes,
+              bestMixId: mixId,
+              ...mixSelectedMeta(selectedMix, lockedSlots),
+            };
+          });
+
+          return replaced;
+        },
+
+        replaceWeakMixTile: (mixId) => {
+          const state = get();
+          const mix = state.mixes.find((candidate) => candidate.id === mixId);
+          if (!mix) return false;
+
+          const lockedSlots = normalizeLockedSlots(state.lockedSlots);
+          const weakSlot =
+            typeof mix.weakSlotIndex === "number"
+              ? lockedSlots[mix.weakSlotIndex]
+                ? findWeakSlotIndex(mix.tileIds, state.getAssetById, lockedSlots)
+                : mix.weakSlotIndex
+              : findWeakSlotIndex(mix.tileIds, state.getAssetById, lockedSlots);
+
+          if (weakSlot < 0 || lockedSlots[weakSlot]) return false;
+          return get().replaceMixTile(mixId, weakSlot);
+        },
 
         buildSequenceFromBest: () =>
           set((state) => {
@@ -1362,6 +1769,12 @@ function buildMixFromPool(
         mixSeed: s.mixSeed,
         mixes: s.mixes,
         bestMixId: s.bestMixId,
+        selectedMixId: s.selectedMixId,
+        selectedMixScore: s.selectedMixScore,
+        selectedMixReasons: s.selectedMixReasons,
+        selectedMixGeneratedAt: s.selectedMixGeneratedAt,
+        lockedSlots: s.lockedSlots,
+        lockedAssetIds: s.lockedAssetIds,
         planner: s.planner,
         sequence: s.sequence,
       }),
@@ -1390,6 +1803,11 @@ function buildMixFromPool(
             }))
           : current.sequence;
 
+        const lockedSlots = normalizeLockedSlots(p.lockedSlots);
+        for (const [slot, id] of Object.entries(lockedSlots)) {
+          if (!keep(id)) delete lockedSlots[Number(slot)];
+        }
+
         const mixes = Array.isArray(p.mixes)
           ? p.mixes.filter(
               (m: any) =>
@@ -1398,6 +1816,7 @@ function buildMixFromPool(
                 m.tileIds.length === 9 &&
                 m.tileIds.every(keep)
             )
+              .map((m: Mix) => scoreMixV2(m, (id) => current.assets.find((a) => a.id === id), lockedSlots))
           : current.mixes;
 
         const bestMixId =
@@ -1408,6 +1827,7 @@ function buildMixFromPool(
         const mixSeed = typeof p.mixSeed === "number" ? p.mixSeed : current.mixSeed;
         const captions = p.captions ? p.captions : current.captions;
         const ai = p.ai ? p.ai : current.ai;
+        const selectedMix = mixes.find((m: Mix) => m.id === bestMixId);
 
         return {
           ...current,
@@ -1417,6 +1837,7 @@ function buildMixFromPool(
           mixSeed,
           mixes,
           bestMixId,
+          ...mixSelectedMeta(selectedMix, lockedSlots),
           planner,
           sequence,
           readout: computeReadoutLite({ selectedAssetIds, mixes }),
