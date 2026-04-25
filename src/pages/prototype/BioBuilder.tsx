@@ -16,6 +16,7 @@ const DEMO_GRID = [
 
 type ToneKey = "clear" | "warm" | "premium";
 type CtaGoalKey = "dm" | "book" | "join" | "browse";
+type BioVariantId = "clear" | "premium" | "warm";
 
 type FormState = {
   displayName: string;
@@ -31,12 +32,50 @@ type FormState = {
   linkUrl: string;
 };
 
-type BioVariant = {
-  key: string;
-  label: string;
-  summary: string;
-  lines: string[];
+type ResolvedProfileState = {
+  displayName: string;
+  handle: string;
+  category: string;
+  niche: string;
+  audience: string;
+  offer: string;
+  proof: string;
+  tone: ToneKey;
+  ctaGoal: CtaGoalKey;
+  linkLabel: string;
+  linkUrl: string;
 };
+
+type BioVariant = {
+  id: BioVariantId;
+  label: string;
+  description: string;
+  bioLines: string[];
+  ctaLine: string;
+  highlights: string[];
+  proofLine?: string;
+};
+
+const CTA_GOAL_LABELS: Record<CtaGoalKey, string> = {
+  dm: "Direct message",
+  book: "Book a call",
+  join: "Join waitlist",
+  browse: "Browse work",
+};
+
+const FORM_FIELDS: Array<keyof FormState> = [
+  "displayName",
+  "handle",
+  "category",
+  "niche",
+  "audience",
+  "offer",
+  "proof",
+  "tone",
+  "ctaGoal",
+  "linkLabel",
+  "linkUrl",
+];
 
 const INITIAL_FORM: FormState = {
   displayName: "Your Name / Brand",
@@ -59,7 +98,7 @@ function clean(value: string) {
 function clip(value: string, max: number) {
   const text = clean(value);
   if (text.length <= max) return text;
-  return `${text.slice(0, max - 1).trim()}…`;
+  return `${text.slice(0, max - 3).trim()}...`;
 }
 
 function titleCase(value: string) {
@@ -76,75 +115,139 @@ function sentence(value: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function ctaText(goal: CtaGoalKey) {
-  switch (goal) {
-    case "book":
-      return "Book a call ↓";
-    case "join":
-      return "Join the waitlist ↓";
-    case "browse":
-      return "Explore the work ↓";
-    case "dm":
-    default:
-      return "DM to start ↓";
-  }
-}
-
-function buildBioVariants(form: FormState): BioVariant[] {
-  const niche = titleCase(form.niche || "Content systems");
-  const audience = clean(form.audience || "creators");
-  const offer = sentence(form.offer || "turn content chaos into a calm publishing system");
-  const proof = sentence(form.proof || "Calm systems. Better publishing rhythm.");
-  const category = titleCase(form.category || "Creator / Studio");
-  const cta = ctaText(form.ctaGoal);
-
-  const clearLines = [
-    clip(`${niche} for ${audience}`, 38),
-    clip(offer, 46),
-    clip(proof, 34),
-    clip(cta, 24),
-  ].filter(Boolean);
-
-  const warmLines = [
-    clip(`Helping ${audience} ${clean(form.offer || "ship better content").toLowerCase()}`, 46),
-    clip(proof, 36),
-    clip(cta, 24),
-  ].filter(Boolean);
-
-  const premiumLines = [
-    clip(category, 32),
-    clip(`${niche}. ${offer}`, 46),
-    clip(cta, 24),
-  ].filter(Boolean);
-
-  if (form.tone === "warm") {
-    return [
-      { key: "warm", label: "Warm", summary: "Human, approachable, creator-led", lines: warmLines },
-      { key: "clear", label: "Clear", summary: "Direct and easy to scan", lines: clearLines },
-      { key: "premium", label: "Premium", summary: "Refined and concise", lines: premiumLines },
-    ];
-  }
-
-  if (form.tone === "premium") {
-    return [
-      { key: "premium", label: "Premium", summary: "Refined, concise, brand-forward", lines: premiumLines },
-      { key: "clear", label: "Clear", summary: "Direct and structured", lines: clearLines },
-      { key: "warm", label: "Warm", summary: "Softer and more personal", lines: warmLines },
-    ];
-  }
-
-  return [
-    { key: "clear", label: "Clear", summary: "Direct, structured, easy to scan", lines: clearLines },
-    { key: "premium", label: "Premium", summary: "Refined and brand-forward", lines: premiumLines },
-    { key: "warm", label: "Warm", summary: "Softer, more personal", lines: warmLines },
-  ];
-}
-
 function shortLabel(value: string, fallback: string) {
   const text = clean(value);
   if (!text) return fallback;
   const first = text.split(/[ /,-]+/).filter(Boolean)[0] ?? fallback;
-  return first.length > 10 ? `${first.slice(0, 9)}…` : titleCase(first);
+  return first.length > 10 ? `${first.slice(0, 9)}...` : titleCase(first);
+}
+
+function sanitizeFilenamePart(value: string) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function resolveProfileState(form: FormState): ResolvedProfileState {
+  return {
+    displayName: clean(form.displayName) || INITIAL_FORM.displayName,
+    handle: clean(form.handle).replace(/^@+/, "") || INITIAL_FORM.handle,
+    category: clean(form.category) || INITIAL_FORM.category,
+    niche: clean(form.niche) || INITIAL_FORM.niche,
+    audience: clean(form.audience) || INITIAL_FORM.audience,
+    offer: clean(form.offer) || INITIAL_FORM.offer,
+    proof: sentence(form.proof) || sentence(INITIAL_FORM.proof),
+    tone: form.tone || INITIAL_FORM.tone,
+    ctaGoal: form.ctaGoal || INITIAL_FORM.ctaGoal,
+    linkLabel: clean(form.linkLabel) || INITIAL_FORM.linkLabel,
+    linkUrl: clean(form.linkUrl) || INITIAL_FORM.linkUrl,
+  };
+}
+
+function getToneFlavor(tone: ToneKey) {
+  switch (tone) {
+    case "premium":
+      return { edge: "polished", note: "premium polish" };
+    case "warm":
+      return { edge: "human", note: "warm clarity" };
+    case "clear":
+    default:
+      return { edge: "direct", note: "clear structure" };
+  }
+}
+
+function buildCtaLine(profile: ResolvedProfileState, variantId: BioVariantId) {
+  const handle = `@${profile.handle}`;
+  const linkLabel = shortLabel(profile.linkLabel, "Link");
+
+  switch (profile.ctaGoal) {
+    case "book":
+      if (variantId === "premium") return `Book via ${linkLabel}`;
+      if (variantId === "warm") return `Book a call via ${linkLabel}`;
+      return "Book a call";
+    case "join":
+      if (variantId === "premium") return `Request access via ${linkLabel}`;
+      if (variantId === "warm") return `Join via ${linkLabel}`;
+      return `Join via ${linkLabel}`;
+    case "browse":
+      if (variantId === "premium") return `View the portfolio via ${linkLabel}`;
+      if (variantId === "warm") return `Take a look via ${linkLabel}`;
+      return `Browse the work via ${linkLabel}`;
+    case "dm":
+    default:
+      if (variantId === "premium") return `Inquiries via ${handle}`;
+      if (variantId === "warm") return `Send a DM to ${handle}`;
+      return `DM ${handle} to start`;
+  }
+}
+
+function buildBioVariants(profileState: FormState): BioVariant[] {
+  const profile = resolveProfileState(profileState);
+  const toneFlavor = getToneFlavor(profile.tone);
+  const audienceLower = clean(profile.audience).toLowerCase();
+  const offerSentence = sentence(profile.offer);
+  const category = titleCase(profile.category);
+  const niche = titleCase(profile.niche);
+  const displayName = profile.displayName;
+
+  return [
+    {
+      id: "clear",
+      label: "Clear",
+      description: `Direct structure with a ${toneFlavor.edge} edge.`,
+      bioLines: [
+        clip(`${niche} for ${audienceLower}`, 40),
+        clip(offerSentence, 48),
+        clip(`${category}. ${titleCase(toneFlavor.note)}.`, 42),
+      ].filter(Boolean),
+      proofLine: clip(profile.proof, 42),
+      ctaLine: clip(buildCtaLine(profile, "clear"), 38),
+      highlights: [
+        shortLabel(profile.niche, "Focus"),
+        "Offer",
+        shortLabel(profile.proof, "Proof"),
+        shortLabel(profile.linkLabel, "Start"),
+      ],
+    },
+    {
+      id: "premium",
+      label: "Premium",
+      description: `Refined positioning with ${toneFlavor.note}.`,
+      bioLines: [
+        clip(category, 34),
+        clip(`${niche}. ${offerSentence}`, 48),
+        clip(`Built for ${audienceLower}.`, 32),
+      ].filter(Boolean),
+      proofLine: clip(profile.proof, 42),
+      ctaLine: clip(buildCtaLine(profile, "premium"), 38),
+      highlights: [
+        shortLabel(profile.category, "Studio"),
+        shortLabel(profile.niche, "Work"),
+        "Proof",
+        shortLabel(profile.linkLabel, "Access"),
+      ],
+    },
+    {
+      id: "warm",
+      label: "Warm",
+      description: `Human-led profile language with ${toneFlavor.note}.`,
+      bioLines: [
+        clip(`Helping ${audienceLower}`, 34),
+        clip(offerSentence, 48),
+        clip(`Built by ${displayName}.`, 34),
+      ].filter(Boolean),
+      proofLine: clip(profile.proof, 42),
+      ctaLine: clip(buildCtaLine(profile, "warm"), 38),
+      highlights: [
+        shortLabel(profile.audience, "People"),
+        "Story",
+        shortLabel(profile.offer, "Offer"),
+        shortLabel(profile.linkLabel, "Start"),
+      ],
+    },
+  ];
 }
 
 function downloadTextFile(filename: string, content: string) {
@@ -159,39 +262,88 @@ function downloadTextFile(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+async function copyTextToClipboard(value: string) {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall through to execCommand fallback.
+    }
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+function formsMatch(a: FormState, b: FormState) {
+  return FORM_FIELDS.every((field) => a[field] === b[field]);
+}
+
+function formatGeneratedTime(timestamp: number) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(timestamp);
+}
+
 function buildProfilePack(args: {
-  form: FormState;
+  profile: ResolvedProfileState;
   activeVariant: BioVariant;
-  highlights: string[];
-  postsCount: number;
+  gridSourceLabel: string;
 }) {
-  const { form, activeVariant, highlights, postsCount } = args;
-  const handle = form.handle.replace(/^@+/, "") || "yourhandle";
-  const cta = ctaText(form.ctaGoal);
+  const { profile, activeVariant, gridSourceLabel } = args;
 
   return [
     "CreatorOps Bio Pack",
     "",
-    `Display name: ${form.displayName || "Your Name / Brand"}`,
-    `Handle: @${handle}`,
-    `Category: ${form.category || "Creator / Studio / Category"}`,
-    `Tone: ${titleCase(form.tone)}`,
-    `CTA goal: ${titleCase(form.ctaGoal)}`,
+    "Profile",
+    `Display name: ${profile.displayName}`,
+    `Handle: @${profile.handle}`,
+    `Category: ${profile.category}`,
+    `Niche: ${profile.niche}`,
+    `Audience: ${profile.audience}`,
+    `Offer / outcome: ${profile.offer}`,
+    `Tone: ${titleCase(profile.tone)}`,
+    `CTA goal: ${CTA_GOAL_LABELS[profile.ctaGoal]}`,
     "",
-    "Selected bio:",
-    ...activeVariant.lines,
+    `Selected variant: ${activeVariant.label}`,
     "",
-    `CTA line: ${cta}`,
-    `Link: ${form.linkUrl || "yourbrand.com"} / ${form.linkLabel || "link-in-bio"}`,
+    "Bio",
+    ...activeVariant.bioLines,
+    ...(activeVariant.proofLine ? [activeVariant.proofLine] : []),
     "",
-    `Highlights: ${highlights.join(" / ")}`,
-    `Posts preview count: ${postsCount}`,
+    "CTA",
+    activeVariant.ctaLine,
     "",
-    "Profile direction:",
-    `Niche: ${form.niche}`,
-    `Audience: ${form.audience}`,
-    `Offer: ${form.offer}`,
-    `Proof: ${form.proof}`,
+    "Highlights",
+    ...activeVariant.highlights.map((item) => `- ${item}`),
+    "",
+    "Link",
+    `Label: ${profile.linkLabel}`,
+    `URL: ${profile.linkUrl}`,
+    "",
+    "Profile grid source",
+    gridSourceLabel,
+    "",
+    "Notes",
+    "Generated locally inside CreatorOps Bio Builder.",
+    "API-ready structure for future AI generation.",
   ].join("\n");
 }
 
@@ -208,11 +360,14 @@ export default function BioBuilder() {
   const captions = usePrototypeStore((s: any) => s.captions ?? null);
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
-  const [variantIndex, setVariantIndex] = useState(0);
+  const [generatedForm, setGeneratedForm] = useState<FormState>(INITIAL_FORM);
+  const [activeVariantId, setActiveVariantId] = useState<BioVariantId>("clear");
   const [avatarUrl, setAvatarUrl] = useState(DEMO_GRID[0]);
   const [avatarObjectUrl, setAvatarObjectUrl] = useState<string | null>(null);
   const [uploadedGridUrls, setUploadedGridUrls] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState(() => Date.now());
+  const [actionStatus, setActionStatus] = useState("Ready");
 
   const captionPreview = useMemo(() => {
     const maybeCaption =
@@ -278,7 +433,8 @@ export default function BioBuilder() {
   }, [exportGridIds, getAssetById]);
 
   const usingUploadedGrid = uploadedGridUrls.length > 0;
-  const usingExportPack = openedFromExport && exportGridUrls.length > 0 && !usingUploadedGrid;
+  const hasConnectedExportPack = openedFromExport && exportGridUrls.length > 0;
+  const usingExportPack = hasConnectedExportPack && !usingUploadedGrid;
 
   const profileGrid = useMemo(() => {
     if (usingUploadedGrid) {
@@ -293,42 +449,47 @@ export default function BioBuilder() {
   }, [exportGridUrls, uploadedGridUrls, usingExportPack, usingUploadedGrid]);
 
   const defaultAvatarUrl = profileGrid[0] ?? DEMO_GRID[0];
-  const gridModeLabel = usingUploadedGrid ? "Uploaded grid" : usingExportPack ? "Export pack" : "Sample grid";
-  const gridModeDescription = usingUploadedGrid
-    ? "Using images uploaded directly into Bio Builder for this preview."
-    : usingExportPack
-      ? "Using the current 3x3 export pack from CreatorOps."
-      : "Using sample visuals. Upload 6-9 images or build a CreatorOps pack for a real preview.";
+  const gridSourceLabel = usingUploadedGrid ? "Uploaded grid" : usingExportPack ? "Export pack" : "Demo grid";
 
-  const variants = useMemo(() => buildBioVariants(form), [form]);
-  const activeVariant = variants[variantIndex] ?? variants[0];
+  const generatedVariants = useMemo(() => buildBioVariants(generatedForm), [generatedForm]);
+  const activeVariant =
+    generatedVariants.find((variant) => variant.id === activeVariantId) ?? generatedVariants[0];
+  const generatedProfile = useMemo(() => resolveProfileState(generatedForm), [generatedForm]);
+  const hasUngeneratedChanges = useMemo(() => !formsMatch(form, generatedForm), [form, generatedForm]);
 
   const postsCount = useMemo(() => {
     if (usingUploadedGrid || usingExportPack) return profileGrid.length;
     return Math.max(selectedAssetIds.length || 0, 18);
   }, [profileGrid.length, selectedAssetIds.length, usingExportPack, usingUploadedGrid]);
 
-  const highlights = useMemo(
-    () => [
-      shortLabel(form.niche, "Start"),
-      "Work",
-      "Proof",
-      shortLabel(form.offer, "Offer"),
-      "Contact",
-    ],
-    [form.niche, form.offer]
-  );
-
   const profilePackText = useMemo(
     () =>
       buildProfilePack({
-        form,
+        profile: generatedProfile,
         activeVariant,
-        highlights,
-        postsCount,
+        gridSourceLabel,
       }),
-    [form, activeVariant, highlights, postsCount]
+    [generatedProfile, activeVariant, gridSourceLabel]
   );
+
+  const bioCopyText = useMemo(() => {
+    return [...activeVariant.bioLines, activeVariant.proofLine].filter(Boolean).join("\n");
+  }, [activeVariant.bioLines, activeVariant.proofLine]);
+
+  const profilePackFilename = useMemo(() => {
+    const safeHandle = sanitizeFilenamePart(generatedProfile.handle);
+    const safeName = sanitizeFilenamePart(generatedProfile.displayName);
+    const handleIsCustom = safeHandle && safeHandle !== sanitizeFilenamePart(INITIAL_FORM.handle);
+    const nameIsCustom = safeName && safeName !== sanitizeFilenamePart(INITIAL_FORM.displayName);
+    const suffix = handleIsCustom ? safeHandle : nameIsCustom ? safeName : "";
+    return suffix ? `creatorops-bio-pack-${suffix}.txt` : "creatorops-bio-pack.txt";
+  }, [generatedProfile.displayName, generatedProfile.handle]);
+
+  const modeDescription = hasConnectedExportPack
+    ? usingUploadedGrid
+      ? "Upload grid override active. Clear it to return to the current export pack."
+      : "Using current export pack"
+    : "Standalone mode. Upload a grid or use demo assets.";
 
   useEffect(() => {
     return () => {
@@ -347,9 +508,7 @@ export default function BioBuilder() {
   useEffect(() => {
     if (!usingExportPack && !usingUploadedGrid) return;
     if (avatarObjectUrl) return;
-    if (!defaultAvatarUrl || defaultAvatarUrl === DEMO_GRID[0]) return;
-    if (avatarUrl === defaultAvatarUrl) return;
-
+    if (!defaultAvatarUrl || avatarUrl === defaultAvatarUrl) return;
     setAvatarUrl(defaultAvatarUrl);
   }, [avatarObjectUrl, avatarUrl, defaultAvatarUrl, usingExportPack, usingUploadedGrid]);
 
@@ -357,16 +516,20 @@ export default function BioBuilder() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const resetAvatarToSource = () => {
+    setAvatarObjectUrl(null);
+    setAvatarUrl(defaultAvatarUrl);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const onAvatarSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const nextUrl = URL.createObjectURL(file);
-
-    if (avatarObjectUrl) {
-      URL.revokeObjectURL(avatarObjectUrl);
-    }
-
     setAvatarObjectUrl(nextUrl);
     setAvatarUrl(nextUrl);
   };
@@ -379,10 +542,9 @@ export default function BioBuilder() {
     if (!files.length) return;
 
     const nextUrls = files.map((file) => URL.createObjectURL(file));
-
     setUploadedGridUrls(nextUrls);
 
-    if (!avatarObjectUrl && avatarUrl === DEMO_GRID[0] && nextUrls[0]) {
+    if (!avatarObjectUrl && nextUrls[0]) {
       setAvatarUrl(nextUrls[0]);
     }
 
@@ -395,7 +557,7 @@ export default function BioBuilder() {
     setUploadedGridUrls([]);
 
     if (!avatarObjectUrl) {
-      setAvatarUrl(usingExportPack ? defaultAvatarUrl : DEMO_GRID[0]);
+      setAvatarUrl(hasConnectedExportPack ? exportGridUrls[0] ?? DEMO_GRID[0] : DEMO_GRID[0]);
     }
 
     if (gridInputRef.current) {
@@ -404,19 +566,22 @@ export default function BioBuilder() {
   };
 
   const onReset = () => {
-    if (avatarObjectUrl) {
-      URL.revokeObjectURL(avatarObjectUrl);
-    }
-
     setAvatarObjectUrl(null);
     setUploadedGridUrls([]);
-    setAvatarUrl(usingExportPack ? defaultAvatarUrl : DEMO_GRID[0]);
+    setAvatarUrl(hasConnectedExportPack ? exportGridUrls[0] ?? DEMO_GRID[0] : DEMO_GRID[0]);
     setForm(INITIAL_FORM);
-    setVariantIndex(0);
+    setGeneratedForm(INITIAL_FORM);
+    setGeneratedAt(Date.now());
+    setActiveVariantId("clear");
     setShowAdvanced(false);
+    setActionStatus("Ready");
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+
+    if (gridInputRef.current) {
+      gridInputRef.current.value = "";
     }
   };
 
@@ -428,8 +593,24 @@ export default function BioBuilder() {
         prev.offer === INITIAL_FORM.offer
           ? "turn content chaos into a calmer publishing workflow"
           : prev.offer,
-      proof: clip(captionPreview, 46),
+      proof: clip(captionPreview, 54),
     }));
+  };
+
+  const onGenerateVariants = () => {
+    setGeneratedForm({ ...form });
+    setGeneratedAt(Date.now());
+    setActionStatus("Ready");
+  };
+
+  const onCopyBio = async () => {
+    const copied = await copyTextToClipboard(bioCopyText);
+    setActionStatus(copied ? "Bio copied" : "Copy unavailable");
+  };
+
+  const onCopyCta = async () => {
+    const copied = await copyTextToClipboard(activeVariant.ctaLine);
+    setActionStatus(copied ? "CTA copied" : "Copy unavailable");
   };
 
   return (
@@ -447,7 +628,27 @@ export default function BioBuilder() {
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(380px,0.98fr)_minmax(420px,1.02fr)]">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-3 sm:px-4">
+        <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+          {hasConnectedExportPack ? "Using current export pack" : "Standalone mode"}
+        </div>
+
+        <div className="min-w-0 flex-1 text-[12px] leading-5 text-[color:var(--co-text)]/72">
+          {modeDescription}
+        </div>
+
+        {!hasConnectedExportPack && (
+          <button
+            type="button"
+            onClick={() => navigate("/prototype/library")}
+            className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface-2)] pressable"
+          >
+            Build content pack first
+          </button>
+        )}
+      </div>
+
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
         <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 shadow-sm sm:p-4">
           <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
             Builder
@@ -460,13 +661,12 @@ export default function BioBuilder() {
               </h2>
 
               <p className="mt-3 max-w-[36ch] text-[13px] leading-6 text-[color:var(--co-muted)]">
-                Fill the core fields, choose a structured bio variant, and export one clean
-                profile brief.
+                Fill the core fields, generate local variants, and export one clean profile brief.
               </p>
             </div>
 
             <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-              Simplified pass
+              AI-ready structure
             </div>
           </div>
 
@@ -496,10 +696,10 @@ export default function BioBuilder() {
 
                 <button
                   type="button"
-                  onClick={() => setAvatarUrl(defaultAvatarUrl)}
+                  onClick={resetAvatarToSource}
                   className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
                 >
-                  Use demo
+                  {usingExportPack || usingUploadedGrid ? "Use grid source" : "Use demo"}
                 </button>
               </div>
             </div>
@@ -651,47 +851,111 @@ export default function BioBuilder() {
               <div className="min-w-0">
                 <div className="text-xs text-[color:var(--co-muted)]">Generated bio variants</div>
                 <div className="mt-1 text-[13px] leading-5 text-[color:var(--co-text)]/78">
-                  Pick one structured direction for the live preview.
+                  Preview reflects the latest local generation, ready for future API replacement.
                 </div>
               </div>
 
-              <div className="flex min-w-0 flex-wrap gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="text-[11px] text-[color:var(--co-muted)]">
+                  Local mock generation. API-ready later.
+                </div>
                 <button
                   type="button"
-                  onClick={applyCoreContext}
+                  onClick={onGenerateVariants}
                   className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90 pressable"
                 >
-                  Use core context
+                  Generate variants
                 </button>
-
-                {variants.map((variant, index) => {
-                  const active = index === variantIndex;
-                  return (
-                    <button
-                      key={variant.key}
-                      type="button"
-                      onClick={() => setVariantIndex(index)}
-                      className={[
-                        "rounded-full border px-3 py-1.5 text-xs transition pressable",
-                        "border-[color:var(--co-border)]",
-                        active
-                          ? "bg-[color:var(--co-surface)] text-[color:var(--co-text)]"
-                          : "bg-transparent text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)]",
-                      ].join(" ")}
-                    >
-                      {variant.label}
-                    </button>
-                  );
-                })}
               </div>
             </div>
 
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+                {hasUngeneratedChanges
+                  ? "Draft changed"
+                  : `Generated locally ${formatGeneratedTime(generatedAt)}`}
+              </div>
+
+              <button
+                type="button"
+                onClick={applyCoreContext}
+                className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1 text-[11px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+              >
+                Use core context
+              </button>
+
+              {generatedVariants.map((variant) => {
+                const active = variant.id === activeVariant.id;
+                return (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    onClick={() => setActiveVariantId(variant.id)}
+                    className={[
+                      "rounded-full border px-3 py-1.5 text-xs transition pressable",
+                      "border-[color:var(--co-border)]",
+                      active
+                        ? "bg-[color:var(--co-surface)] text-[color:var(--co-text)]"
+                        : "bg-transparent text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)]",
+                    ].join(" ")}
+                  >
+                    {variant.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="mt-3 rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4">
-              <div className="text-[12px] text-[color:var(--co-muted)]">{activeVariant.summary}</div>
-              <div className="mt-2 space-y-1 text-[13px] leading-6 text-[color:var(--co-text)]">
-                {activeVariant.lines.map((line) => (
-                  <div key={line}>{line}</div>
-                ))}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-[color:var(--co-text)]">
+                    {activeVariant.label} variant
+                  </div>
+                  <div className="mt-1 text-[12px] text-[color:var(--co-muted)]">
+                    {activeVariant.description}
+                  </div>
+                </div>
+
+                <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+                  Selected variant
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-4 text-[13px] text-[color:var(--co-text)]">
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--co-muted)]">
+                    Bio
+                  </div>
+                  {activeVariant.bioLines.map((line) => (
+                    <div key={line}>{line}</div>
+                  ))}
+                  {activeVariant.proofLine && (
+                    <div className="text-[color:var(--co-text)]/74">{activeVariant.proofLine}</div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--co-muted)]">
+                    CTA
+                  </div>
+                  <div>{activeVariant.ctaLine}</div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--co-muted)]">
+                    Highlights
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {activeVariant.highlights.map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[12px] text-[color:var(--co-muted)]"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -699,10 +963,12 @@ export default function BioBuilder() {
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => navigate("/prototype/export")}
+              onClick={() =>
+                hasConnectedExportPack ? navigate("/prototype/export") : navigate("/prototype/library")
+              }
               className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
             >
-              Back to Export
+              {hasConnectedExportPack ? "Back to Export" : "Build content pack first"}
             </button>
 
             <button
@@ -712,10 +978,32 @@ export default function BioBuilder() {
             >
               Reset form
             </button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+              {actionStatus}
+            </div>
 
             <button
               type="button"
-              onClick={() => downloadTextFile("creatorops-bio-pack.txt", profilePackText)}
+              onClick={onCopyBio}
+              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
+            >
+              Copy bio
+            </button>
+
+            <button
+              type="button"
+              onClick={onCopyCta}
+              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
+            >
+              Copy CTA
+            </button>
+
+            <button
+              type="button"
+              onClick={() => downloadTextFile(profilePackFilename, profilePackText)}
               className="flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable sm:flex-none"
             >
               Download .txt
@@ -735,20 +1023,22 @@ export default function BioBuilder() {
             </div>
 
             <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-              {gridModeLabel}
+              {gridSourceLabel}
             </div>
           </div>
 
           <div className="mt-4 max-w-full overflow-hidden rounded-[1.5rem] border border-[color:var(--co-border)] bg-[#111317] shadow-[0_18px_60px_rgba(0,0,0,0.22)] sm:rounded-[2rem]">
-            <div className="flex items-center justify-between border-b border-white/8 px-5 py-3">
-              <div className="text-[13px] font-medium text-white/92">{form.handle || "yourhandle"}</div>
+            <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
+              <div className="min-w-0 truncate text-[13px] font-medium text-white/92">
+                {generatedProfile.handle || "yourhandle"}
+              </div>
               <div className="flex items-center gap-3 text-white/70">
-                <span className="text-xs">＋</span>
-                <span className="text-xs">≡</span>
+                <span className="text-xs">+</span>
+                <span className="text-xs">|||</span>
               </div>
             </div>
 
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[84px_minmax(0,1fr)]">
                 <div className="h-[72px] w-[72px] overflow-hidden rounded-full border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))] sm:h-[84px] sm:w-[84px]">
                   <img src={avatarUrl} alt="Profile avatar" className="h-full w-full object-cover opacity-95" />
@@ -788,26 +1078,31 @@ export default function BioBuilder() {
               </div>
 
               <div className="mt-5 space-y-2">
-                <div className="text-[13px] font-medium text-white/95">{form.displayName || "Your Name / Brand"}</div>
-                <div className="text-[12px] text-white/50">{form.category || "Creator / Studio / Category"}</div>
+                <div className="text-[13px] font-medium text-white/95">
+                  {generatedProfile.displayName || "Your Name / Brand"}
+                </div>
+                <div className="text-[12px] text-white/50">
+                  {generatedProfile.category || "Creator / Studio / Category"}
+                </div>
 
                 <div className="max-w-[34ch] space-y-1 text-[13px] leading-6 text-white/82">
-                  {activeVariant.lines.map((line) => (
+                  {activeVariant.bioLines.map((line) => (
                     <div key={line}>{line}</div>
                   ))}
+                  {activeVariant.proofLine && <div className="text-white/60">{activeVariant.proofLine}</div>}
                 </div>
 
                 <div className="break-words text-[12px] text-[#8ab4ff]">
-                  {form.linkUrl || "yourbrand.com"} / {form.linkLabel || "link-in-bio"}
+                  {generatedProfile.linkLabel} / {generatedProfile.linkUrl}
                 </div>
 
-                <div className="inline-block rounded-full border border-white/10 bg-[#1a1d22] px-3 py-2 text-[12px] text-white/78">
-                  {ctaText(form.ctaGoal)}
+                <div className="inline-flex max-w-full rounded-full border border-white/10 bg-[#1a1d22] px-3 py-2 text-[12px] text-white/78">
+                  {activeVariant.ctaLine}
                 </div>
               </div>
 
               <div className="mt-5 flex gap-4 overflow-x-auto pb-1">
-                {highlights.map((item, index) => (
+                {activeVariant.highlights.map((item, index) => (
                   <div key={item} className="flex min-w-[62px] flex-col items-center gap-2">
                     <div className="h-[58px] w-[58px] overflow-hidden rounded-full border border-white/12 bg-[#191c21]">
                       <img
@@ -816,7 +1111,7 @@ export default function BioBuilder() {
                         className="h-full w-full object-cover opacity-90"
                       />
                     </div>
-                    <div className="text-[11px] text-white/58">{item}</div>
+                    <div className="max-w-[64px] truncate text-[11px] text-white/58">{item}</div>
                   </div>
                 ))}
               </div>
@@ -842,12 +1137,13 @@ export default function BioBuilder() {
               </div>
             </div>
           </div>
+
           <div className="mt-4 text-[12px] leading-6 text-[color:var(--co-muted)]">
             {usingUploadedGrid
-              ? "Using the uploaded grid for this standalone profile preview."
+              ? "Using the uploaded grid for this profile preview."
               : usingExportPack
-                ? "Using the current 3x3 export pack from CreatorOps. Adjust the profile text, then download the bio pack."
-                : "Standalone mode. Sample visuals are shown until you upload a grid or build a CreatorOps pack."}
+                ? "Using the current 3x3 export pack from CreatorOps."
+                : "Standalone mode. Upload a grid or use demo assets."}
           </div>
 
           <div className="mt-4 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-4 py-3">
@@ -859,16 +1155,16 @@ export default function BioBuilder() {
                   </div>
 
                   <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-[10px] text-[color:var(--co-muted)]">
-                    {gridModeLabel}
+                    {gridSourceLabel}
                   </div>
                 </div>
 
-                <div className="mt-1 max-w-[42ch] text-[12px] leading-5 text-[color:var(--co-text)]/68 sm:truncate">
+                <div className="mt-1 max-w-[42ch] text-[12px] leading-5 text-[color:var(--co-text)]/68">
                   {usingUploadedGrid
                     ? "Uploaded images are driving this preview."
                     : usingExportPack
                       ? "Connected to the current CreatorOps export pack."
-                      : "Sample visuals are shown until you upload or build a pack."}
+                      : "Demo visuals are shown until you upload or build a pack."}
                 </div>
               </div>
 
@@ -876,7 +1172,13 @@ export default function BioBuilder() {
                 <button
                   type="button"
                   onClick={() => gridInputRef.current?.click()}
-                  className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-[12px] text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
+                  className={[
+                    "flex-1 rounded-full border px-3 py-1.5 text-[12px] hover:opacity-90 pressable sm:flex-none",
+                    "border-[color:var(--co-border)]",
+                    usingExportPack
+                      ? "bg-transparent text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)]"
+                      : "bg-[color:var(--co-surface)] text-[color:var(--co-text)]",
+                  ].join(" ")}
                 >
                   Upload grid
                 </button>
@@ -889,13 +1191,13 @@ export default function BioBuilder() {
                   >
                     Clear
                   </button>
-                ) : !usingExportPack ? (
+                ) : !hasConnectedExportPack ? (
                   <button
                     type="button"
                     onClick={() => navigate("/prototype/library")}
                     className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
                   >
-                    Build pack
+                    Build content pack first
                   </button>
                 ) : null}
               </div>
@@ -915,5 +1217,3 @@ export default function BioBuilder() {
     </div>
   );
 }
-
-
