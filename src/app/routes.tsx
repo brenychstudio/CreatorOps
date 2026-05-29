@@ -2,6 +2,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Marketing from "../pages/Marketing";
 import Story from "../pages/Story";
+import UserCabinet from "../pages/app/UserCabinet";
 
 import PrototypeShell from "../pages/prototype/PrototypeShell";
 import Library from "../pages/prototype/Library";
@@ -18,6 +19,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<Marketing />} />
         <Route path="/story" element={<Story />} />
+        <Route path="/app" element={<UserCabinet />} />
 
         <Route path="/prototype" element={<PrototypeShell />}>
           <Route index element={<Navigate to="library" replace />} />
