@@ -1,6 +1,4 @@
 ﻿// src/pages/Marketing.tsx
-import RoadmapSection from "../components/marketing/RoadmapSection";
-
 import {
   useCallback,
   useEffect,
@@ -16,12 +14,12 @@ import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "../app/theme/useTheme";
 
 const MODULES = [
-  { title: "Library", desc: "Collect and pick your strongest assets." },
-  { title: "Smart Mix", desc: "Auto-curated 3x3 candidates with guardrails." },
-  { title: "Sequence", desc: "Turn the best mix into a weekly plan." },
-  { title: "Planner", desc: "Drag & drop slots. Stay flexible." },
-  { title: "Captions", desc: "Generate copy + hashtags per post." },
-  { title: "Export", desc: "Download a publish-ready pack." },
+  { title: "Library", desc: "Collect the strongest visual assets for the week." },
+  { title: "Smart Mix", desc: "Compare ranked 3x3 candidates and select the strongest rhythm." },
+  { title: "Planner", desc: "Shape the publishing board before captions and export." },
+  { title: "Captions", desc: "Create caption drafts, CTA lines, and hashtags for the selected rhythm." },
+  { title: "Export", desc: "Download a clean ZIP pack with ordered files and copy." },
+  { title: "Profile Handoff", desc: "Align avatar, bio, CTA, and profile preview with the Week Pack." },
 ];
 
 const BENEFITS = [
@@ -34,7 +32,7 @@ const OUTPUTS = [
   "Export pack (captions + hashtags)",
   "Per-post variations (Primary / Alt)",
   "Weekly plan preview (7-day context)",
-  "Prototype flow in ~2 minutes",
+  "Workspace flow in ~2 minutes",
 ];
 
 const SHELL_CLASS = "mx-auto w-full max-w-[1240px] px-6 md:px-10 lg:px-14";
@@ -233,7 +231,7 @@ function WaitlistForm() {
 
           <div className="mt-2 max-w-[640px] text-sm text-black/55">
             Early build access, private updates, and a short onboarding when the beta opens. No spam. No integrations
-            required for the demo.
+            required for the workspace.
           </div>
 
           <form onSubmit={onSubmit} className="mt-6 grid gap-3 sm:grid-cols-12">
@@ -305,9 +303,12 @@ const LANDING_SCROLL_OFFSET_PX = 96;
 
 const LANDING_SECTIONS = [
   { id: "top", label: "Top" },
-  { id: "system-logic", label: "Logic" },
+  { id: "week-pack", label: "Week Pack" },
+  { id: "system-logic", label: "Flow" },
+  { id: "workspace", label: "Workspace" },
+  { id: "pricing", label: "Pricing" },
+  { id: "trust", label: "Trust" },
   { id: "roadmap", label: "Roadmap" },
-  { id: "output", label: "Output" },
   { id: "waitlist", label: "Waitlist" },
 ] as const;
 
@@ -339,7 +340,7 @@ const OUTPUT_SLIDES: Array<{
     key: "week",
     label: "Week plan",
     title: "A clear 7-day context.",
-    desc: "See the sequence as a week - then export a publish-ready pack.",
+    desc: "See the publishing board as a week - then export a publish-ready pack.",
   },
 ];
 
@@ -470,7 +471,7 @@ function SlideWeek() {
       <div className="text-xs uppercase tracking-wide text-black/45">Week plan</div>
       <div className="mt-2 text-2xl font-semibold tracking-tight text-black">A week you can see.</div>
       <div className="mt-2 max-w-[56ch] text-sm text-black/55">
-        Sequence turns decisions into a weekly context - then export.
+        Planner turns decisions into a weekly context - then export.
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -485,14 +486,14 @@ function SlideWeek() {
             ))}
           </div>
           <div className="mt-4 text-xs text-black/50">
-            Preview only - the prototype shows the full flow end-to-end.
+            The workspace shows the full flow end-to-end.
           </div>
         </div>
 
         <div className="rounded-3xl border border-black/10 bg-white/75 p-4 shadow-sm">
           <div className="text-sm font-medium text-black">Ship checklist</div>
           <div className="mt-3 space-y-2 text-sm text-black/65">
-            <div>- Pick sequence</div>
+            <div>- Pick weekly order</div>
             <div>- Copy captions</div>
             <div>- Paste hashtags</div>
             <div>- Post / schedule</div>
@@ -647,10 +648,10 @@ function AutoAdvanceOutputStage({
 
             <div className="mt-6 flex flex-wrap gap-2">
               <Link
-                to="/prototype"
+                to="/prototype/library"
                 className="pressable inline-flex items-center justify-center rounded-full bg-black px-5 py-2.5 text-sm font-medium text-white"
               >
-                Open prototype
+                Open workspace
               </Link>
               <button
                 type="button"
@@ -691,7 +692,7 @@ function AutoAdvanceOutputStage({
             </div>
 
             <div className="mt-3 text-xs text-black/45">
-              Build a weekly plan, generate captions, export a pack. No integrations required for the demo.
+              Build a weekly plan, generate captions, export a pack. No integrations required.
             </div>
           </div>
         </div>
@@ -714,7 +715,7 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
   ];
 
   return (
-    <section id="output" className="relative scroll-mt-24 bg-[#f5f5f7] text-black">
+    <section id="workspace" className="relative scroll-mt-24 bg-[#f5f5f7] text-black">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_74%_46%,rgba(15,23,42,0.035),rgba(15,23,42,0)_34%)]" />
 
       <div className={[SHELL_CLASS, "py-18 sm:py-20 lg:py-24"].join(" ")}>
@@ -738,15 +739,14 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
             viewport={{ once: true, amount: 0.42 }}
             className="max-w-[320px]"
           >
-            <div className="text-[11px] uppercase tracking-[0.22em] text-black/24">Output</div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-black/24">Workspace</div>
 
             <h2 className="mt-4 max-w-[8ch] text-[clamp(2.6rem,5vw,4.3rem)] font-semibold leading-[0.9] tracking-[-0.065em] text-black">
-              A ready-to-publish pack.
+              A working creator workspace.
             </h2>
 
             <p className="mt-5 max-w-[31ch] text-[15px] leading-8 text-black/42">
-              CreatorOps turns a week of content decisions into one clean export package -
-              ordered visuals, captions, hashtags, and handoff files that are easy to ship.
+              CreatorOps keeps decisions upstream. The workspace guides assets through selection, planning, captions, export, and profile handoff without adding more workflow noise.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-2">
@@ -766,14 +766,14 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
                 href="/prototype/library"
                 className="inline-flex items-center rounded-full bg-black px-5 py-3 text-sm text-white transition hover:opacity-90"
               >
-                Open prototype
+                Open workspace
               </a>
 
               <a
-                href="#waitlist"
+                href="/story"
                 className="inline-flex items-center rounded-full border border-black/10 bg-white px-5 py-3 text-sm text-black/68 transition hover:bg-black/[0.03]"
               >
-                Join waitlist
+                View story
               </a>
             </div>
           </motion.div>
@@ -854,26 +854,28 @@ function OutputPackShowcase({ reducedMotion = false }: { reducedMotion?: boolean
 const HERO_FLOW = [
   {
     title: "Library",
-    text: "Collect and filter the strongest source assets.",
+    text: "Collect the strongest visual assets for the week.",
   },
   {
     title: "Smart Mix",
-    text: "Generate ranked 3×3 candidates with calm guardrails.",
+    text: "Compare ranked 3x3 candidates with calm guardrails.",
   },
   {
-    title: "Export",
-    text: "Ship a clean pack with ordered visuals and captions.",
+    title: "Planner",
+    text: "Shape the publishing board before captions and export.",
   },
   {
-    title: "Bio Builder",
-    text: "Carry the selected pack into a profile-ready simulator.",
+    title: "Profile Handoff",
+    text: "Carry the Week Pack into bio, CTA, and profile preview.",
   },
 ] as const;
 
 const HERO_STATS = [
-  "9 ordered images",
-  "4 ranked candidates",
-  "ZIP + captions + CSV",
+  "9 visual assets",
+  "Smart Mix",
+  "Caption draft",
+  "ZIP export",
+  "Profile Handoff",
 ] as const;
 
 const HERO_PREVIEW_IMAGES = [
@@ -884,6 +886,327 @@ const HERO_PREVIEW_IMAGES = [
   "/creatorops/thumbs/4x5/thumb-4x5-05.jpg",
   "/creatorops/thumbs/4x5/thumb-4x5-06.jpg",
 ] as const;
+
+const WEEK_PACK_OUTCOMES = [
+  "Selected visuals",
+  "Publishing board",
+  "Caption drafts",
+  "ZIP export",
+  "Profile handoff",
+] as const;
+
+const WORKFLOW_STEPS = [
+  { title: "Library", text: "Collect the strongest visual assets for the week." },
+  { title: "Smart Mix", text: "Compare ranked 3x3 candidates and select the strongest rhythm." },
+  { title: "Planner", text: "Shape the publishing board before captions and export." },
+  { title: "Captions", text: "Create caption drafts, CTA lines, and hashtags for the selected rhythm." },
+  { title: "Export", text: "Download a clean ZIP pack with ordered files and copy." },
+  { title: "Profile Handoff", text: "Align avatar, bio, CTA, and profile preview with the Week Pack." },
+] as const;
+
+const PRODUCT_FEATURES = [
+  {
+    title: "Smart Mix",
+    text: "Ranked visual sets with guardrails for rhythm, variety, and duplicate control.",
+  },
+  {
+    title: "Publishing Board",
+    text: "A clean weekly order that drives captions and export.",
+  },
+  {
+    title: "Caption Composer",
+    text: "Draft captions, CTA lines, and hashtags around the selected visual rhythm.",
+  },
+  {
+    title: "Export Pack",
+    text: "Download ordered images, captions, hashtags, CSV, manifest, and README.",
+  },
+  {
+    title: "Profile Handoff",
+    text: "Carry the Week Pack into a profile preview and bio pack.",
+  },
+  {
+    title: "AI-ready generation layer",
+    text: "The caption workflow is prepared for live AI generation while keeping fallback drafts safe.",
+  },
+] as const;
+
+const PRICING_PLANS = [
+  {
+    title: "Free Beta",
+    price: "$0",
+    text: "For testing the Week Pack workflow.",
+    items: ["3 Week Packs / month", "Starter Smart Mix", "Caption drafts", "ZIP export", "Profile Handoff"],
+    cta: "Try workspace",
+    href: "/prototype/library",
+  },
+  {
+    title: "Creator Pro",
+    price: "Planned: $12 / month",
+    text: "For creators and small brands building weekly content packs.",
+    items: ["Unlimited Week Packs", "More caption generations", "Saved pack history", "Larger uploads", "Bio Pack export"],
+    cta: "Join early access",
+    href: "#waitlist",
+  },
+  {
+    title: "Studio",
+    price: "Planned: $29 / month",
+    text: "For freelancers and small teams managing multiple brands.",
+    items: ["Multiple brand profiles", "Client-ready exports", "More AI credits", "Brand voice presets", "Priority workflow features"],
+    cta: "Join early access",
+    href: "#waitlist",
+  },
+] as const;
+
+const TRUST_ITEMS = [
+  "Server-side AI endpoint",
+  "No API keys in frontend",
+  "Export-first workflow",
+  "Future account-based storage",
+  "Stripe-ready billing path",
+] as const;
+
+const ROADMAP_LANES = [
+  {
+    title: "Now",
+    items: ["Live workspace", "Smart Mix", "Planner", "Caption Composer", "Export ZIP", "Profile Handoff"],
+  },
+  {
+    title: "Next",
+    items: ["User accounts", "Saved Week Packs", "Live AI captions", "Pricing plans", "Workspace dashboard"],
+  },
+  {
+    title: "Later",
+    items: ["Brand presets", "Team workflows", "Instagram integration", "Publishing queue", "Analytics layer"],
+  },
+] as const;
+
+const FAQ_ITEMS = [
+  {
+    q: "Is this a scheduler?",
+    a: "Not yet. CreatorOps is export-first: it helps shape and package content before publishing.",
+  },
+  {
+    q: "Is AI live?",
+    a: "The caption layer is AI-ready. Live AI generation will be enabled through the server-side endpoint after production API setup.",
+  },
+  {
+    q: "Can I use it now?",
+    a: "Yes, the workspace preview is available. Account-based saving and pricing plans are planned for the SaaS release.",
+  },
+  {
+    q: "What is a Week Pack?",
+    a: "A structured weekly content pack: selected visuals, order, captions, hashtags, export files, and profile handoff.",
+  },
+  {
+    q: "Who is it for?",
+    a: "Creators, small brands, SMM freelancers, and creative studios that need a calmer pre-publishing workflow.",
+  },
+] as const;
+
+function WeekPackSection() {
+  return (
+    <section id="week-pack" className="relative overflow-hidden bg-[#06080d] px-4 py-20 text-white sm:px-6 md:px-10 lg:px-14 lg:py-28">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.08),transparent_28%),radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.045),transparent_32%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-[#06080d]" />
+      </div>
+
+      <div className={[SHELL_CLASS, "relative grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-16"].join(" ")}>
+        <div>
+          <div className="inline-flex rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/42">
+            Week Pack
+          </div>
+          <h2 className="mt-5 max-w-[12ch] text-[clamp(2.5rem,5vw,5.5rem)] font-medium leading-[0.9] tracking-[-0.06em] text-white">
+            One Week Pack. One calm workflow.
+          </h2>
+          <p className="mt-6 max-w-[35rem] text-[15px] leading-7 text-white/52">
+            CreatorOps turns a loose batch of visuals into a structured publishing pack: selected images, weekly order, caption drafts, hashtags, export files, and profile handoff.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {WEEK_PACK_OUTCOMES.map((item, index) => (
+            <div
+              key={item}
+              className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm"
+            >
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/30">
+                {String(index + 1).padStart(2, "0")}
+              </div>
+              <div className="mt-4 text-[17px] font-medium text-white/88">{item}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductSaaSSections() {
+  return (
+    <>
+      <section id="features" className="bg-[#f5f5f7] text-black">
+        <div className={[SHELL_CLASS, "py-20 lg:py-24"].join(" ")}>
+          <div className="max-w-2xl">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-black/38">Features</div>
+            <h2 className="mt-3 text-[clamp(2.2rem,4vw,4.2rem)] font-semibold leading-[0.94] tracking-[-0.055em] text-black">
+              Built for export-first creators
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {PRODUCT_FEATURES.map((feature) => (
+              <div key={feature.title} className="rounded-[28px] border border-black/8 bg-white/72 p-5 shadow-[0_18px_44px_rgba(15,23,42,0.045)] backdrop-blur">
+                <div className="text-[15px] font-medium text-black">{feature.title}</div>
+                <p className="mt-3 text-[13px] leading-6 text-black/52">{feature.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="bg-[#f5f5f7] text-black scroll-mt-[96px]">
+        <div className={[SHELL_CLASS, "py-20 lg:py-24"].join(" ")}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-black/38">Pricing preview</div>
+              <h2 className="mt-3 text-[clamp(2.2rem,4vw,4rem)] font-semibold leading-[0.94] tracking-[-0.055em] text-black">
+                Simple plans for the first release
+              </h2>
+            </div>
+            <p className="max-w-[31rem] text-[14px] leading-7 text-black/50">
+              Billing is not live yet. These plans show the intended SaaS path while the workspace remains open for testing.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            {PRICING_PLANS.map((plan) => (
+              <div key={plan.title} className="flex min-h-[28rem] flex-col rounded-[30px] border border-black/8 bg-white/78 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.055)] backdrop-blur">
+                <div className="text-[15px] font-medium text-black">{plan.title}</div>
+                <div className="mt-4 text-[28px] font-semibold tracking-[-0.04em] text-black">{plan.price}</div>
+                <p className="mt-3 text-[13px] leading-6 text-black/52">{plan.text}</p>
+                <ul className="mt-6 space-y-2.5 text-[13px] text-black/58">
+                  {plan.items.map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-black/25" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href={plan.href}
+                  className="mt-auto inline-flex items-center justify-center rounded-full border border-black/10 bg-black px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                >
+                  {plan.cta}
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="trust" className="bg-[#f5f5f7] text-black scroll-mt-[96px]">
+        <div className={[SHELL_CLASS, "py-20 lg:py-24"].join(" ")}>
+          <div className="rounded-[34px] border border-black/8 bg-white/72 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.055)] backdrop-blur md:p-8">
+            <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-start">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-black/38">Trust</div>
+                <h2 className="mt-3 text-[clamp(2rem,3.8vw,3.8rem)] font-semibold leading-[0.95] tracking-[-0.055em] text-black">
+                  Built with a secure SaaS path
+                </h2>
+                <p className="mt-5 max-w-[38rem] text-[14px] leading-7 text-black/52">
+                  CreatorOps is moving toward account-based workspaces, server-side AI keys, protected uploads, and Stripe-powered billing. The current workspace keeps API secrets out of the browser and is designed for export-first workflows.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {TRUST_ITEMS.map((item) => (
+                  <div key={item} className="rounded-[20px] border border-black/8 bg-black/[0.025] px-4 py-4 text-[13px] text-black/62">
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap" className="bg-[#f5f5f7] text-black scroll-mt-[96px]">
+        <div className={[SHELL_CLASS, "py-20 lg:py-24"].join(" ")}>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-black/38">Roadmap</div>
+          <h2 className="mt-3 text-[clamp(2.2rem,4vw,4rem)] font-semibold leading-[0.94] tracking-[-0.055em] text-black">
+            Now, next, later
+          </h2>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            {ROADMAP_LANES.map((lane) => (
+              <div key={lane.title} className="rounded-[28px] border border-black/8 bg-white/72 p-6 shadow-[0_18px_44px_rgba(15,23,42,0.045)] backdrop-blur">
+                <div className="text-[15px] font-medium text-black">{lane.title}</div>
+                <ul className="mt-5 space-y-2.5 text-[13px] text-black/58">
+                  {lane.items.map((item) => (
+                    <li key={item} className="flex gap-3">
+                      <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-black/25" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="bg-[#f5f5f7] text-black">
+        <div className={[SHELL_CLASS, "py-20 lg:py-24"].join(" ")}>
+          <div className="grid gap-8 lg:grid-cols-[0.65fr_1.35fr]">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-black/38">FAQ</div>
+              <h2 className="mt-3 text-[clamp(2rem,3.4vw,3.5rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-black">
+                Clear before you open the workspace
+              </h2>
+            </div>
+
+            <div className="grid gap-3">
+              {FAQ_ITEMS.map((item) => (
+                <div key={item.q} className="rounded-[24px] border border-black/8 bg-white/72 p-5 backdrop-blur">
+                  <div className="text-[14px] font-medium text-black">{item.q}</div>
+                  <p className="mt-2 text-[13px] leading-6 text-black/52">{item.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#f5f5f7] text-black">
+        <div className={[SHELL_CLASS, "pb-20 pt-10 lg:pb-24"].join(" ")}>
+          <div className="rounded-[36px] border border-black/8 bg-white/78 p-7 shadow-[0_22px_70px_rgba(15,23,42,0.06)] backdrop-blur md:p-10">
+            <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <h2 className="text-[clamp(2.2rem,4vw,4.2rem)] font-semibold leading-[0.94] tracking-[-0.055em] text-black">
+                  Build your first Week Pack.
+                </h2>
+                <p className="mt-4 max-w-[42rem] text-[14px] leading-7 text-black/52">
+                  Open the workspace, test the flow, and see how CreatorOps turns scattered visuals into a ready-to-publish pack.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <a href="/prototype/library" className="inline-flex items-center rounded-full bg-black px-5 py-3 text-sm font-medium text-white transition hover:opacity-90">
+                  Open workspace
+                </a>
+                <a href="/story" className="inline-flex items-center rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-medium text-black/70 transition hover:bg-black/[0.03]">
+                  Watch story
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
 
 export default function Marketing() {
   const [activeSection, setActiveSection] = useState<LandingSectionId>("top");
@@ -1047,7 +1370,7 @@ export default function Marketing() {
     };
   }, [reducedMotion]);
 
-  const railIsDark = activeSection === "top" || activeSection === "system-logic";
+  const railIsDark = activeSection === "top" || activeSection === "week-pack" || activeSection === "system-logic";
   const railShell = railIsDark
     ? "border-white/10 bg-black/30 text-white/70"
     : "border-black/10 bg-white/70 text-black/60";
@@ -1116,7 +1439,7 @@ export default function Marketing() {
                 CreatorOps
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/45">
-                Premium prototype
+                Week Pack workspace
               </span>
             </div>
 
@@ -1125,8 +1448,7 @@ export default function Marketing() {
             </h1>
 
             <p className="mt-6 max-w-[38rem] text-[15px] leading-7 text-white/62 md:text-[16px]">
-              Library &gt; Smart Mix &gt; Sequence &gt; Planner &gt; Captions &gt; Export &gt; Bio Builder.
-              One quiet system that turns scattered content into a cleaner publishing outcome.
+              From scattered visuals to a ready-to-publish Week Pack: Smart Mix, Planner, Captions, Export, and Profile Handoff.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -1134,7 +1456,7 @@ export default function Marketing() {
                 href="/prototype/library"
                 className="inline-flex items-center rounded-full bg-white px-5 py-3 text-[14px] font-medium text-black transition hover:bg-white/90"
               >
-                Start demo
+                Open workspace
               </a>
 
               <a
@@ -1241,13 +1563,13 @@ export default function Marketing() {
 
                   <div className="co-motion-card-slow co-motion-delay-2 rounded-[26px] border border-white/10 bg-[#0b1119]/82 p-4 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.35)]">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-white/32">
-                      Bio Builder
+                      Profile Handoff
                     </div>
                     <div className="mt-2 text-[15px] font-medium text-white">
-                      Carry the selected pack into a profile simulator.
+                      Carry the Week Pack into a profile preview.
                     </div>
                     <p className="mt-2 text-[13px] leading-6 text-white/46">
-                      Use the final pack as the visual base for a cleaner profile direction.
+                      Align avatar, bio, CTA, and handoff files around the selected visual rhythm.
                     </p>
                   </div>
 
@@ -1265,6 +1587,8 @@ export default function Marketing() {
           </motion.div>
         </div>
       </section>
+
+      <WeekPackSection />
 
       <motion.section
         id="system-logic"
@@ -1287,66 +1611,37 @@ export default function Marketing() {
         <div className={[shellClass, "grid gap-12 lg:grid-cols-[0.94fr_1.06fr] lg:items-start lg:gap-28"].join(" ")}>
           <motion.div {...getRevealProps(0.04, 24)}>
             <div className="mb-7 inline-flex rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/42">
-              Operating logic
+              From assets to export
             </div>
 
             <h2 className="max-w-[11ch] text-[clamp(2.7rem,5vw,5.9rem)] font-medium leading-[0.88] tracking-[-0.065em] text-white">
-              The calm is in the guardrails.
+              How CreatorOps works.
             </h2>
 
             <p className="mt-7 max-w-[30rem] text-[15px] leading-7 text-white/52">
-              CreatorOps reduces the decision field before export. Fewer choices, cleaner rhythm, clearer handoff.
+              CreatorOps reduces the decision field before export. The flow guides assets through selection, planning, captions, export, and profile handoff without adding workflow noise.
             </p>
 
             <div className="mt-10 h-px w-full max-w-[30rem] bg-gradient-to-r from-white/22 via-white/8 to-transparent" />
 
-            <div className="mt-10 grid max-w-[34rem] gap-7">
-              <div className="group grid grid-cols-[42px_1fr] gap-4">
-                <div className="relative flex justify-center">
-                  <div className="h-8 w-8 rounded-full border border-white/12 bg-white/[0.035] text-center text-[11px] leading-8 text-white/50">
-                    01
+            <div className="mt-10 grid max-w-[36rem] gap-5">
+              {WORKFLOW_STEPS.map((step, index) => (
+                <div key={step.title} className="group grid grid-cols-[42px_1fr] gap-4">
+                  <div className="relative flex justify-center">
+                    <div className="h-8 w-8 rounded-full border border-white/12 bg-white/[0.035] text-center text-[11px] leading-8 text-white/50">
+                      {String(index + 1).padStart(2, "0")}
+                    </div>
+                    {index < WORKFLOW_STEPS.length - 1 ? (
+                      <div className="absolute top-9 h-full w-px bg-gradient-to-b from-white/16 to-transparent" />
+                    ) : null}
                   </div>
-                  <div className="absolute top-9 h-full w-px bg-gradient-to-b from-white/16 to-transparent" />
-                </div>
 
-                <div className="pb-5">
-                  <div className="text-[15px] font-medium text-white">Reduce the field</div>
-                  <p className="mt-2 text-[13px] leading-6 text-white/46">
-                    The user does not sort an endless library. The system narrows input into a usable creative set.
-                  </p>
-                </div>
-              </div>
-
-              <div className="group grid grid-cols-[42px_1fr] gap-4">
-                <div className="relative flex justify-center">
-                  <div className="h-8 w-8 rounded-full border border-white/12 bg-white/[0.035] text-center text-[11px] leading-8 text-white/50">
-                    02
-                  </div>
-                  <div className="absolute top-9 h-full w-px bg-gradient-to-b from-white/16 to-transparent" />
-                </div>
-
-                <div className="pb-5">
-                  <div className="text-[15px] font-medium text-white">Expose the reason</div>
-                  <p className="mt-2 text-[13px] leading-6 text-white/46">
-                    Smart Mix keeps the logic visible: balance, variety, duplicate avoidance, and readiness.
-                  </p>
-                </div>
-              </div>
-
-              <div className="group grid grid-cols-[42px_1fr] gap-4">
-                <div className="flex justify-center">
-                  <div className="h-8 w-8 rounded-full border border-white/12 bg-white/[0.035] text-center text-[11px] leading-8 text-white/50">
-                    03
+                  <div className={index < WORKFLOW_STEPS.length - 1 ? "pb-3" : ""}>
+                    <div className="text-[15px] font-medium text-white">{step.title}</div>
+                    <p className="mt-2 text-[13px] leading-6 text-white/46">{step.text}</p>
                   </div>
                 </div>
-
-                <div>
-                  <div className="text-[15px] font-medium text-white">Ship one contract</div>
-                  <p className="mt-2 text-[13px] leading-6 text-white/46">
-                    The final state becomes a downloadable pack: ordered images, captions, CSV, manifest, and profile handoff.
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </motion.div>
 
@@ -1475,10 +1770,9 @@ export default function Marketing() {
   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#f5f5f7]" />
 </section>
 
-      {/* Roadmap (light canvas, no scroll-driven scene) */}
-<RoadmapSection />
+      <OutputPackShowcase reducedMotion={reducedMotion} />
 
-       <OutputPackShowcase reducedMotion={reducedMotion} />
+      <ProductSaaSSections />
 
       {/* WAITLIST */}
 <section id="waitlist" className="bg-[#f5f5f7] text-black scroll-mt-[96px]">
@@ -1507,7 +1801,7 @@ export default function Marketing() {
           <div className="text-sm text-black/60">Next</div>
           <h2 className="mt-2 text-2xl text-black">Join the waitlist.</h2>
           <p className="mt-3 text-sm text-black/55">
-            We'll validate the loop (time saved + output quality), then ship beta access.
+            Join early access for the account-based SaaS release, pricing updates, and product notes.
           </p>
 
           <ul className="mt-6 space-y-2 text-sm text-black/65">
@@ -1521,7 +1815,7 @@ export default function Marketing() {
             </li>
             <li className="flex gap-2">
               <span className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full bg-black/35" />
-              <span>First invite when scheduling/publishing lands</span>
+              <span>First invite when saved workspaces and live AI captions land</span>
             </li>
           </ul>
         </motion.div>
@@ -1539,17 +1833,29 @@ export default function Marketing() {
         <div className={[shellClass, "pb-10"].join(" ")}>
           <Reveal>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-black/10 bg-white/70 px-6 py-4 text-sm text-black/60 backdrop-blur">
-              <div>CreatorOps - prototype (offline demo)</div>
+              <div>CreatorOps</div>
               <div className="flex items-center gap-4">
+                <Link to="/" className="hover:text-black">
+                  Product
+                </Link>
                 <Link to="/story" className="hover:text-black">
                   Story
                 </Link>
-                <Link to="/prototype" className="hover:text-black">
-                  Prototype
+                <Link to="/prototype/library" className="hover:text-black">
+                  Workspace
                 </Link>
+                <a href="#pricing" className="hover:text-black">
+                  Pricing preview
+                </a>
+                <a href="#roadmap" className="hover:text-black">
+                  Roadmap
+                </a>
                 <button type="button" onClick={() => scrollToSection("waitlist")} className="hover:text-black">
                   Waitlist
                 </button>
+                <a href="https://brenychstudio.com/" target="_blank" rel="noreferrer" className="hover:text-black">
+                  Design & development - brenychstudio
+                </a>
               </div>
             </div>
           </Reveal>
