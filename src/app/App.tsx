@@ -2,7 +2,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import AppRoutes from "./routes";
-import ThemeToggle from "./theme/ThemeToggle";
 import { useTheme } from "./theme/useTheme";
 
 export default function App() {
@@ -18,7 +17,6 @@ export default function App() {
 
   return (
     <>
-      {showThemeToggle ? <ThemeToggle className="fixed right-4 top-4 z-[60] hidden md:inline-flex" /> : null}
       <AppRoutes />
     </>
   );

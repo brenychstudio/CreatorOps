@@ -3,10 +3,18 @@ import JSZip from "jszip";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
-
-const APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION ?? "dev";
-const BUILD_TIME = (import.meta as any).env?.VITE_BUILD_TIME ?? "";
 import { usePrototypeStore } from "../../store/prototypeStore";
+
+type CreatorOpsImportMeta = ImportMeta & {
+  env?: {
+    VITE_APP_VERSION?: string;
+    VITE_BUILD_TIME?: string;
+  };
+};
+
+const env = (import.meta as CreatorOpsImportMeta).env;
+const APP_VERSION = env?.VITE_APP_VERSION ?? "dev";
+const BUILD_TIME = env?.VITE_BUILD_TIME ?? "";
 
 async function safeCopy(text: string) {
   try {
@@ -80,6 +88,7 @@ function csvEscape(v: string) {
 }
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+const PACK_CONTENTS = ["images/01–09", "captions.txt", "hashtags.txt", "captions.csv", "manifest.json", "README"];
 
 type ExportTile = {
   index: number; // 0..8 (grid order)
@@ -146,8 +155,11 @@ export default function Export() {
   }, [assets, selectedAssetIds, getAssetById, usedWeekA]);
 
   const gridIds = useMemo(() => [...weekA, ...suggestionIds].slice(0, 9), [weekA, suggestionIds]);
+  const previewIds = useMemo(() => Array.from({ length: 9 }, (_, index) => gridIds[index]), [gridIds]);
+  const filledGridCount = gridIds.filter(Boolean).length;
 
   const hasAnyGrid = gridIds.some(Boolean);
+  const bestMix = useMemo(() => mixes.find((m) => m.id === bestMixId), [mixes, bestMixId]);
 
   if (!hasAnyGrid) {
     return (
@@ -162,8 +174,6 @@ export default function Export() {
     );
   }
 
-
-  const bestMix = useMemo(() => mixes.find((m) => m.id === bestMixId), [mixes, bestMixId]);
 
   const buildManifest = (tiles: ExportTile[]) => {
     const selected = selectedAssetIds.slice();
@@ -219,7 +229,7 @@ export default function Export() {
 
   const makeTilesBase = (): ExportTile[] => {
     return gridIds.map((id, i) => {
-      const a: any = id ? getAssetById(id) : undefined;
+      const a = id ? getAssetById(id) : undefined;
       const slot = i < 7 ? DAYS[i] : `Next ${i - 6}`;
       return {
         index: i,
@@ -247,7 +257,7 @@ export default function Export() {
       bestMixScore: manifest.smartMix?.bestMixScore ?? null,
       bestMixReasons: manifest.smartMix?.bestMixReasons ?? [],
       ua: navigator.userAgent,
-      gridFiles: (manifest.grid ?? []).map((g: any) => ({
+      gridFiles: manifest.grid.map((g) => ({
         index: g.index,
         slot: g.slot,
         id: g.id,
@@ -260,7 +270,7 @@ export default function Export() {
     };
 
     return [
-      "CreatorOps beta feedback diagnostics",
+      "CreatorOps workspace diagnostics",
       `Version: ${APP_VERSION}${BUILD_TIME ? ` (${BUILD_TIME})` : ""}`,
       "",
       JSON.stringify(summary, null, 2),
@@ -283,7 +293,7 @@ export default function Export() {
     const manifest = buildManifest(tiles);
 
     const body = [
-      "CreatorOps beta feedback",
+      "CreatorOps workspace feedback",
       `Version: ${APP_VERSION}${BUILD_TIME ? ` (${BUILD_TIME})` : ""}`,
       "",
       "Message:",
@@ -296,10 +306,10 @@ export default function Export() {
       `- bestMixScore: ${manifest.smartMix?.bestMixScore ?? "n/a"}`,
       `- reasons: ${(manifest.smartMix?.bestMixReasons ?? []).join(" | ")}`,
       "",
-      "Tip: If needed, copy full diagnostics from the app (Export → Feedback → Copy diagnostics).",
+      "Tip: Include what you expected, what happened, and whether you used uploads.",
     ].join("\n");
 
-    const subject = "CreatorOps beta feedback";
+    const subject = "CreatorOps workspace feedback";
     const gmailUrl =
       "https://mail.google.com/mail/?view=cm&fs=1" +
       `&su=${encodeURIComponent(subject)}` +
@@ -356,7 +366,7 @@ export default function Export() {
 
       // Grid tiles (stable 0..8 order)
       const tiles: ExportTile[] = gridIds.map((id, i) => {
-        const a: any = id ? getAssetById(id) : undefined;
+        const a = id ? getAssetById(id) : undefined;
         const slot = i < 7 ? DAYS[i] : `Next ${i - 6}`;
         return {
           index: i,
@@ -376,7 +386,7 @@ export default function Export() {
           const t = tiles[i]!;
           if (!t.id) continue;
 
-          const a: any = getAssetById(t.id);
+          const a = getAssetById(t.id);
           if (!a) continue;
 
           const order = String(i + 1).padStart(2, "0");
@@ -391,7 +401,7 @@ export default function Export() {
             continue;
           }
 
-          // Fallback: fetch blob from thumbUrl (works for local public assets)
+          // Backup path: fetch blob from thumbUrl (works for bundled assets)
           const url = String(a.thumbUrl || "");
           if (!url) continue;
 
@@ -438,22 +448,22 @@ export default function Export() {
       zip.file(
         "README.txt",
         [
-          "CreatorOps export pack (beta)",
+          "CreatorOps Export Pack",
           `App version: ${APP_VERSION}${BUILD_TIME ? ` (${BUILD_TIME})` : ""}`,
           "",
-          "What’s inside:",
-          "- images/01..09.*  → 3×3 grid in order (left→right, top→bottom)",
-          "- captions.txt     → primary caption (+ alt, if available)",
-          "- hashtags.txt     → hashtags line",
-          "- captions.csv     → ready-to-copy table (filename + slot + caption + hashtags)",
-          "- manifest.json    → machine-readable mapping (grid slots, ids, reasons)",
+          "What's inside:",
+          "- images/01..09.*  -> 3x3 grid in order (left to right, top to bottom)",
+          "- captions.txt     -> primary caption (+ alt, if available)",
+          "- hashtags.txt     -> hashtags line",
+          "- captions.csv     -> ready-to-copy table (filename + slot + caption + hashtags)",
+          "- manifest.json    -> pack mapping (grid slots, ids, reasons)",
           "",
           "How to post (fast):",
-          "1) Open images/ and post in filename order: 01,02,03 → 04,05,06 → 07,08,09",
+          "1) Open images/ and post in filename order: 01,02,03 -> 04,05,06 -> 07,08,09",
           "2) Use captions.txt (or captions.csv) to copy caption + hashtags.",
           "",
           "Notes:",
-          "- If an image file is missing, it couldn’t be fetched at export time (e.g. revoked URL).",
+          "- If an image file is missing, it could not be fetched at export time.",
           "- Best mix reasons are recorded in manifest.json under smartMix.bestMixReasons.",
         ].join("\n")
       );
@@ -467,8 +477,8 @@ export default function Export() {
       const vSafe = String(APP_VERSION || "dev").replace(/[^a-zA-Z0-9._-]/g, "-");
       const filename = `creatorops-${vSafe}_pack_${tsStamp()}.zip`;
       downloadBlob(filename, blob);
-    } catch (e: any) {
-      const msg = typeof e?.message === "string" ? e.message : "Failed to build zip.";
+    } catch (e: unknown) {
+      const msg = e instanceof Error && e.message ? e.message : "Failed to build zip.";
       setZipError(msg);
     } finally {
       setIsZipping(false);
@@ -476,12 +486,12 @@ export default function Export() {
   };
 
   const Tile = (props: { id?: string; label: string; index: number }) => {
-    const a: any = props.id ? getAssetById(props.id) : undefined;
+    const a = props.id ? getAssetById(props.id) : undefined;
     const order = String(props.index + 1).padStart(2, "0");
 
     return (
-    <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-1.5 sm:p-2">
-        <div className="relative overflow-hidden rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)]">
+      <div className="co-export-tile min-w-0">
+        <div className="co-export-tile-media relative overflow-hidden">
           <div className="aspect-[4/5] w-full">
             {a ? (
               <img
@@ -499,13 +509,11 @@ export default function Export() {
             )}
           </div>
 
-          <div className="pointer-events-none absolute left-2 top-2 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]/85 px-2 py-1 text-[11px] text-[color:var(--co-muted)] backdrop-blur">
+          <div className="pointer-events-none absolute left-1.5 top-1.5 rounded-full border border-white/10 bg-black/35 px-1.5 py-0.5 text-[10px] text-white/72 backdrop-blur sm:left-2 sm:top-2 sm:px-2 sm:py-1 sm:text-[11px]">
             <span className="text-[color:var(--co-text)]/80">{props.label}</span>
-            <span className="mx-1 text-[color:var(--co-muted)]/60">·</span>
-            <span className="text-[color:var(--co-muted)]/80">4:5</span>
           </div>
 
-          <div className="pointer-events-none absolute right-2 top-2 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-bg)]/55 px-2 py-1 text-[11px] text-[color:var(--co-text)]/85 backdrop-blur">
+          <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-full border border-white/10 bg-black/45 px-1.5 py-0.5 text-[10px] text-white/84 backdrop-blur sm:right-2 sm:top-2 sm:px-2 sm:py-1 sm:text-[11px]">
             {order}
           </div>
         </div>
@@ -514,22 +522,32 @@ export default function Export() {
   };
 
   return (
-    <div className="min-w-0 space-y-5 text-[color:var(--co-text)]">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-lg text-[color:var(--co-text)]">Export</div>
-          <div className="mt-1 text-sm text-[color:var(--co-muted)]">
-            Real ZIP pack: 3×3 grid + captions + CSV.
+    <div className="co-workspace-page co-scene co-completion-scene co-export-page">
+      <div className="co-scene-header co-export-scene-header flex shrink-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-base text-[color:var(--co-text)]">Export Pack Ready</div>
+          <p className="mt-1 max-w-[44rem] text-sm leading-5 text-[color:var(--co-muted)]">
+            Your Week Pack is ordered, captioned, and ready to download.
+          </p>
+
+          <div className="mt-3 hidden flex-wrap gap-2 sm:flex">
+            {["Pack ready", `${filledGridCount}/9 images`, "captions", "CSV", "manifest"].map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-[11px] text-[color:var(--co-muted)]"
+              >
+                {item}
+              </span>
+            ))}
           </div>
         </div>
 
-        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+        <div className="hidden flex-wrap gap-2 sm:flex sm:w-auto sm:justify-end">
           <button
             type="button"
             onClick={() => navigate("/prototype/captions")}
             className={[
-              "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
+              "flex-1 rounded-full border border-[color:var(--co-border-soft)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface)] sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               pressable,
             ].join(" ")}
@@ -545,28 +563,34 @@ export default function Export() {
               navigate("/", { replace: false });
             }}
             className={[
-              "flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
+              "flex-1 rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               pressable,
             ].join(" ")}
           >
-            Exit
+            Home
           </button>
         </div>
       </div>
 
       {/* Layout */}
-      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-12">
+      <div className="co-export-workbench co-scrollbar">
         {/* Left: 3×3 preview */}
-        <div className="min-w-0 lg:col-span-7">
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 shadow-sm sm:p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">3×3 pack preview</div>
-              <div className="text-[11px] text-[color:var(--co-muted)]">Week (7) + Next (2)</div>
+        <section className="co-export-preview-panel">
+            <div className="hidden w-full items-center justify-between gap-3 sm:flex">
+              <div>
+                <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Final 3x3</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">
+                  Export order locked.
+                </div>
+              </div>
+              <div className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+                01 - 09
+              </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
-              {gridIds.map((id, i) => (
+            <div className="co-export-preview-grid">
+              {previewIds.map((id, i) => (
                 <Tile
                   key={`${id ?? "empty"}-${i}`}
                   id={id}
@@ -576,58 +600,79 @@ export default function Export() {
               ))}
             </div>
 
-            <div className="mt-3 text-[11px] text-[color:var(--co-muted)]">
-              Exported filenames match this grid order: <span className="font-mono">01..09</span>.
+            <div className="mt-3 hidden w-full gap-2 text-[11px] text-[color:var(--co-muted)] sm:grid sm:grid-cols-3">
+              <div className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1.5 text-center">
+                Week 01-07
+              </div>
+              <div className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1.5 text-center">
+                Next 08-09
+              </div>
+              <div className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1.5 text-center">
+                ZIP order
+              </div>
             </div>
-          </div>
-        </div>
+        </section>
 
         {/* Right: actions */}
-        <div className="min-w-0 space-y-5 lg:col-span-5">
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">Download</div>
+        <aside className="co-export-action-panel">
+          <div className="co-export-download-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Download pack</div>
+                <div className="mt-2 text-xl font-medium text-[color:var(--co-text)]">
+                  ZIP ready
+                </div>
+                <p className="mt-3 max-w-[38ch] text-sm leading-6 text-[color:var(--co-muted)]">
+                  Your Week Pack includes ordered images, captions, hashtags, CSV, manifest, and README.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={onDownloadPack}
                 disabled={isZipping}
                 className={[
-                  "w-full rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:w-auto",
+                  "co-export-primary-action w-full hover:opacity-90",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
                   pressable,
                   isZipping ? "opacity-70 cursor-wait" : "",
                 ].join(" ")}
               >
-                {isZipping ? "Building…" : "Download zip"}
+                {isZipping ? "Building pack..." : "Download ZIP"}
               </button>
             </div>
 
-            <div className="mt-3 rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 text-[11px] text-[color:var(--co-muted)]">
-              Includes <span className="font-mono">images/01..09</span>, <span className="font-mono">captions.csv</span>,
-              plus manifest + text files.
+            <div className="mt-5">
+              <div className="text-[11px] text-[color:var(--co-muted)]">Pack contents</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {PACK_CONTENTS.map((item) => (
+                  <span
+                    key={item}
+                    className="co-export-file-chip"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {zipError ? (
-              <div className="mt-3 rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 text-[11px] text-[color:var(--co-muted)]">
+              <div className="mt-4 rounded-xl border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] p-3 text-[11px] text-[color:var(--co-muted)]">
                 ZIP error: {zipError}
                 <div className="mt-2 text-[11px]">
-                  If you see “Cannot find module jszip”, run:{" "}
+                  If you see "Cannot find module jszip", run:{" "}
                   <span className="font-mono">npm i jszip</span>
                 </div>
               </div>
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4 shadow-sm">
+          <div className="co-export-secondary-card">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-xs text-[color:var(--co-muted)]">Next tool</div>
-                <div className="mt-2 text-sm font-medium text-[color:var(--co-text)]">
-                  Profile ready too?
-                </div>
-                <p className="mt-2 max-w-[34ch] text-[12px] leading-6 text-[color:var(--co-muted)]">
-                  Use Bio Builder to align your avatar, bio, CTA, and profile preview with this
-                  content pack.
+              <div className="min-w-0">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Profile handoff</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Bio Builder</div>
+                <p className="mt-2 max-w-[36ch] text-[12px] leading-5 text-[color:var(--co-muted)]">
+                  Carry this Week Pack into Bio Builder.
                 </p>
               </div>
 
@@ -641,81 +686,92 @@ export default function Export() {
                     },
                   })
                 }
-                className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable"
+                className={[
+                  "rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface-active)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
               >
-                Open Bio Builder
+                Open Profile Handoff
               </button>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">Feedback</div>
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                <button
-                  type="button"
-                  onClick={copyDiagnostics}
-                  className={[
-                    "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                >
-                  {diagCopied ? "Copied" : "Copy diagnostics"}
-                </button>
+          <details className="co-export-secondary-card co-export-secondary-card--quiet">
+            <summary className="cursor-pointer text-xs uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+              Support tools
+            </summary>
 
-                <button
-                  type="button"
-                  onClick={sendFeedbackEmail}
-                  className={[
-                    "flex-1 rounded-full bg-[color:var(--co-text)] px-3 py-1.5 text-xs text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                  title="Opens Gmail compose with a prefilled message (also copies text)"
-                >
-                  Send email
-                </button>
+            <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-[color:var(--co-muted)]">Support</div>
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={copyDiagnostics}
+                    className={[
+                      "flex-1 rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                      pressable,
+                    ].join(" ")}
+                  >
+                    {diagCopied ? "Copied" : "Copy summary"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={sendFeedbackEmail}
+                    className={[
+                      "flex-1 rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                      pressable,
+                    ].join(" ")}
+                    title="Opens Gmail compose with a prefilled message (also copies text)"
+                  >
+                    Send feedback
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="mt-3 space-y-2">
               <textarea
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
                 placeholder="What worked / what felt confusing / what should improve?"
-                className="min-h-[92px] w-full resize-none rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 text-sm text-[color:var(--co-text)] placeholder:text-[color:var(--co-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)]"
+                className="min-h-[70px] w-full resize-none rounded-xl border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] p-3 text-sm text-[color:var(--co-text)] placeholder:text-[color:var(--co-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)]"
               />
 
               <div className="text-[11px] text-[color:var(--co-muted)]">
-                Tip: include what you expected, what happened, and whether you used uploads.
+                Share what you expected, what happened, and whether you used uploads.
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--co-border-soft)] pt-3">
+                <div>
+                  <div className="text-xs text-[color:var(--co-muted)]">Workspace reset</div>
+                  <div className="mt-1 text-[11px] text-[color:var(--co-muted)]">
+                    Clears saved draft progress. Uploads are already session-only.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={resetSavedState}
+                  className={[
+                    "rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                    pressable,
+                  ].join(" ")}
+                  title="Clears saved workspace on this device"
+                >
+                  Reset draft
+                </button>
               </div>
             </div>
+          </details>
+
+          <div className="px-1 text-[11px] leading-5 text-[color:var(--co-muted)]">
+            Export-first by design: one clean outcome, not another layer of workflow noise.
           </div>
 
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">Reset</div>
-              <button
-                type="button"
-                onClick={resetSavedState}
-                className={[
-                  "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                  pressable,
-                ].join(" ")}
-                title="Clears saved beta state on this device"
-              >
-                Reset saved state
-              </button>
-            </div>
-
-            <div className="mt-3 text-[11px] text-[color:var(--co-muted)]">
-              Clears local saved progress (selection, mixes, planner, captions). Uploads are already session-only.
-            </div>
-          </div>
-
-        </div>
+        </aside>
       </div>
     </div>
   );

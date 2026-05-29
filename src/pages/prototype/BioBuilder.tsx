@@ -1,8 +1,8 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { usePrototypeStore } from "../../store/prototypeStore";
 
-const DEMO_GRID = [
+const STARTER_GRID = [
   "/creatorops/thumbs/4x5/thumb-4x5-01.jpg",
   "/creatorops/thumbs/4x5/thumb-4x5-02.jpg",
   "/creatorops/thumbs/4x5/thumb-4x5-03.jpg",
@@ -63,6 +63,19 @@ const CTA_GOAL_LABELS: Record<CtaGoalKey, string> = {
   browse: "Browse work",
 };
 
+const TONE_LABELS: Record<ToneKey, string> = {
+  clear: "Clear",
+  warm: "Warm",
+  premium: "Premium",
+};
+
+const CTA_GOAL_SHORT_LABELS: Record<CtaGoalKey, string> = {
+  dm: "DM",
+  book: "Book",
+  join: "Join",
+  browse: "Browse",
+};
+
 const FORM_FIELDS: Array<keyof FormState> = [
   "displayName",
   "handle",
@@ -113,6 +126,12 @@ function sentence(value: string) {
   const text = clean(value);
   if (!text) return "";
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function sentenceWithPeriod(value: string) {
+  const text = sentence(value);
+  if (!text) return "";
+  return /[.!?]$/.test(text) ? text : `${text}.`;
 }
 
 function shortLabel(value: string, fallback: string) {
@@ -187,7 +206,7 @@ function buildBioVariants(profileState: FormState): BioVariant[] {
   const profile = resolveProfileState(profileState);
   const toneFlavor = getToneFlavor(profile.tone);
   const audienceLower = clean(profile.audience).toLowerCase();
-  const offerSentence = sentence(profile.offer);
+  const offerSentence = sentenceWithPeriod(profile.offer);
   const category = titleCase(profile.category);
   const niche = titleCase(profile.niche);
   const displayName = profile.displayName;
@@ -198,9 +217,9 @@ function buildBioVariants(profileState: FormState): BioVariant[] {
       label: "Clear",
       description: `Direct structure with a ${toneFlavor.edge} edge.`,
       bioLines: [
-        clip(`${niche} for ${audienceLower}`, 40),
-        clip(offerSentence, 48),
-        clip(`${category}. ${titleCase(toneFlavor.note)}.`, 42),
+        `${niche} for ${audienceLower}.`,
+        offerSentence,
+        `${category}. ${titleCase(toneFlavor.note)}.`,
       ].filter(Boolean),
       proofLine: clip(profile.proof, 42),
       ctaLine: clip(buildCtaLine(profile, "clear"), 38),
@@ -216,9 +235,9 @@ function buildBioVariants(profileState: FormState): BioVariant[] {
       label: "Premium",
       description: `Refined positioning with ${toneFlavor.note}.`,
       bioLines: [
-        clip(category, 34),
-        clip(`${niche}. ${offerSentence}`, 48),
-        clip(`Built for ${audienceLower}.`, 32),
+        `${category}.`,
+        `${niche}. ${offerSentence}`,
+        `Built for ${audienceLower}.`,
       ].filter(Boolean),
       proofLine: clip(profile.proof, 42),
       ctaLine: clip(buildCtaLine(profile, "premium"), 38),
@@ -234,9 +253,9 @@ function buildBioVariants(profileState: FormState): BioVariant[] {
       label: "Warm",
       description: `Human-led profile language with ${toneFlavor.note}.`,
       bioLines: [
-        clip(`Helping ${audienceLower}`, 34),
-        clip(offerSentence, 48),
-        clip(`Built by ${displayName}.`, 34),
+        `Helping ${audienceLower}.`,
+        offerSentence,
+        `Built by ${displayName}.`,
       ].filter(Boolean),
       proofLine: clip(profile.proof, 42),
       ctaLine: clip(buildCtaLine(profile, "warm"), 38),
@@ -295,13 +314,6 @@ function formsMatch(a: FormState, b: FormState) {
   return FORM_FIELDS.every((field) => a[field] === b[field]);
 }
 
-function formatGeneratedTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(timestamp);
-}
-
 function buildProfilePack(args: {
   profile: ResolvedProfileState;
   activeVariant: BioVariant;
@@ -342,8 +354,8 @@ function buildProfilePack(args: {
     gridSourceLabel,
     "",
     "Notes",
-    "Generated locally inside CreatorOps Bio Builder.",
-    "API-ready structure for future AI generation.",
+    "Draft structure prepared inside CreatorOps Profile Handoff.",
+    "Draft structure ready for the current Week Pack.",
   ].join("\n");
 }
 
@@ -352,6 +364,13 @@ export default function BioBuilder() {
   const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const gridInputRef = useRef<HTMLInputElement | null>(null);
+  const phoneScrollRef = useRef<HTMLDivElement | null>(null);
+  const phoneDragRef = useRef({
+    pointerId: -1,
+    startY: 0,
+    scrollTop: 0,
+    dragging: false,
+  });
 
   const assets = usePrototypeStore((s: any) => s.assets ?? []);
   const selectedAssetIds = usePrototypeStore((s: any) => s.selectedAssetIds ?? []);
@@ -362,12 +381,11 @@ export default function BioBuilder() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [generatedForm, setGeneratedForm] = useState<FormState>(INITIAL_FORM);
   const [activeVariantId, setActiveVariantId] = useState<BioVariantId>("clear");
-  const [avatarUrl, setAvatarUrl] = useState(DEMO_GRID[0]);
+  const [avatarUrl, setAvatarUrl] = useState(STARTER_GRID[0]);
   const [avatarObjectUrl, setAvatarObjectUrl] = useState<string | null>(null);
   const [uploadedGridUrls, setUploadedGridUrls] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [generatedAt, setGeneratedAt] = useState(() => Date.now());
-  const [actionStatus, setActionStatus] = useState("Ready");
+  const [actionStatus, setActionStatus] = useState("Bio Pack ready");
 
   const captionPreview = useMemo(() => {
     const maybeCaption =
@@ -438,18 +456,29 @@ export default function BioBuilder() {
 
   const profileGrid = useMemo(() => {
     if (usingUploadedGrid) {
-      return [...uploadedGridUrls, ...DEMO_GRID].slice(0, 9);
+      return [...uploadedGridUrls, ...STARTER_GRID].slice(0, 9);
     }
 
     if (usingExportPack) {
-      return [...exportGridUrls, ...DEMO_GRID].slice(0, 9);
+      return [...exportGridUrls, ...STARTER_GRID].slice(0, 9);
     }
 
-    return DEMO_GRID;
+    return STARTER_GRID;
   }, [exportGridUrls, uploadedGridUrls, usingExportPack, usingUploadedGrid]);
 
-  const defaultAvatarUrl = profileGrid[0] ?? DEMO_GRID[0];
-  const gridSourceLabel = usingUploadedGrid ? "Uploaded grid" : usingExportPack ? "Export pack" : "Demo grid";
+  const defaultAvatarUrl = profileGrid[0] ?? STARTER_GRID[0];
+  const gridSourceLabel = usingUploadedGrid ? "Uploaded grid" : usingExportPack ? "Week Pack 01" : "Starter grid";
+  const avatarSourceLabel = usingExportPack ? "Use pack image" : usingUploadedGrid ? "Use source" : "Use starter";
+  const profilePreviewNote = usingUploadedGrid
+    ? "Using the uploaded grid for this profile preview."
+    : usingExportPack
+      ? "Using the current Week Pack from CreatorOps."
+      : "Starter grid active. Start from Library to use a Week Pack.";
+  const profileGridNote = usingUploadedGrid
+    ? "Uploaded images are driving this preview."
+    : usingExportPack
+      ? "Using exported grid order."
+      : "Starter grid active. Start from Library to use a Week Pack.";
 
   const generatedVariants = useMemo(() => buildBioVariants(generatedForm), [generatedForm]);
   const activeVariant =
@@ -551,7 +580,7 @@ export default function BioBuilder() {
     setUploadedGridUrls([]);
 
     if (!avatarObjectUrl) {
-      setAvatarUrl(hasConnectedExportPack ? exportGridUrls[0] ?? DEMO_GRID[0] : DEMO_GRID[0]);
+      setAvatarUrl(hasConnectedExportPack ? exportGridUrls[0] ?? STARTER_GRID[0] : STARTER_GRID[0]);
     }
 
     if (gridInputRef.current) {
@@ -562,13 +591,12 @@ export default function BioBuilder() {
   const onReset = () => {
     setAvatarObjectUrl(null);
     setUploadedGridUrls([]);
-    setAvatarUrl(hasConnectedExportPack ? exportGridUrls[0] ?? DEMO_GRID[0] : DEMO_GRID[0]);
+    setAvatarUrl(hasConnectedExportPack ? exportGridUrls[0] ?? STARTER_GRID[0] : STARTER_GRID[0]);
     setForm(INITIAL_FORM);
     setGeneratedForm(INITIAL_FORM);
-    setGeneratedAt(Date.now());
     setActiveVariantId("clear");
     setShowAdvanced(false);
-    setActionStatus("Ready");
+    setActionStatus("Bio Pack ready");
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -593,8 +621,7 @@ export default function BioBuilder() {
 
   const onGenerateVariants = () => {
     setGeneratedForm({ ...form });
-    setGeneratedAt(Date.now());
-    setActionStatus("Ready");
+    setActionStatus("Bio Pack ready");
   };
 
   const onCopyBio = async () => {
@@ -607,75 +634,115 @@ export default function BioBuilder() {
     setActionStatus(copied ? "CTA copied" : "Copy unavailable");
   };
 
+  const onPhonePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, textarea, select")) return;
+
+    phoneDragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      scrollTop: event.currentTarget.scrollTop,
+      dragging: true,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPhonePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = phoneDragRef.current;
+    if (!drag.dragging || drag.pointerId !== event.pointerId) return;
+    event.currentTarget.scrollTop = drag.scrollTop + drag.startY - event.clientY;
+  };
+
+  const endPhoneDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = phoneDragRef.current;
+    if (drag.pointerId === event.pointerId && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    phoneDragRef.current = {
+      pointerId: -1,
+      startY: 0,
+      scrollTop: 0,
+      dragging: false,
+    };
+  };
+
   return (
-    <div className="min-w-0 space-y-5 text-[color:var(--co-text)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="co-workspace-page co-scene co-profile-studio">
+      <div className="co-scene-header flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-lg text-[color:var(--co-text)]">Bio Builder</div>
+          <div className="text-base text-[color:var(--co-text)]">Bio Builder</div>
           <div className="mt-1 text-sm text-[color:var(--co-muted)]">
-            A profile simulator for shaping avatar, positioning, bio, and CTA as one system.
+            Profile handoff studio for aligning avatar, positioning, bio, and CTA.
           </div>
         </div>
 
         <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-          MVP / Live Preview
+          Profile Handoff
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
-        <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 shadow-sm sm:p-4">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
-            Builder
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-[34rem]">
-              <h2 className="max-w-[14ch] text-[2rem] font-semibold leading-[0.92] tracking-[-0.055em] text-[color:var(--co-text)]">
-                Build a profile that matches the content.
+      <div className="co-bio-workbench">
+        <div className="co-bio-builder-panel co-stage-card min-h-0 min-w-0 rounded-2xl">
+          <div className="co-bio-tool-header">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                Builder
+              </div>
+              <h2 className="mt-1 text-xl font-semibold leading-tight text-[color:var(--co-text)]">
+                Profile setup
               </h2>
-
-              <p className="mt-3 max-w-[36ch] text-[13px] leading-6 text-[color:var(--co-muted)]">
-                Fill the core fields, generate local variants, and export one clean profile brief.
-              </p>
             </div>
 
-            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-              AI-ready structure
+            <div
+              className={[
+                "co-bio-status-pill",
+                hasUngeneratedChanges ? "co-bio-status-pill--warning" : "",
+              ].join(" ")}
+            >
+              {hasUngeneratedChanges ? "Needs generate" : "Preview synced"}
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3 sm:p-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-4">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]">
-                  <img src={avatarUrl} alt="Avatar preview" className="h-full w-full object-cover" />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-[color:var(--co-text)]">Avatar</div>
-                  <div className="mt-1 text-[12px] text-[color:var(--co-muted)]">
-                    Upload a profile image for the simulator preview.
-                  </div>
-                </div>
+          <div className="co-bio-section co-bio-identity-card">
+            <div className="co-bio-avatar-compact">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]">
+                <img src={avatarUrl} alt="Avatar preview" className="h-full w-full object-cover" />
               </div>
 
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
-                >
-                  Upload avatar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={resetAvatarToSource}
-                  className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
-                >
-                  {usingExportPack || usingUploadedGrid ? "Use grid source" : "Use demo"}
-                </button>
+              <div className="min-w-0 flex-1">
+                <div className="co-bio-section-kicker">01 Identity</div>
+                <div className="co-bio-section-title">Avatar and handle</div>
+                <div className="co-bio-mini-actions">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="pressable">
+                    Upload
+                  </button>
+                  <button type="button" onClick={resetAvatarToSource} className="pressable">
+                    {avatarSourceLabel}
+                  </button>
+                </div>
               </div>
+            </div>
+
+            <div className="co-bio-core-fields co-bio-core-fields--identity grid gap-3 md:grid-cols-2">
+              <label className="co-bio-field">
+                <span>Display name</span>
+                <input
+                  value={form.displayName}
+                  onChange={(e) => updateField("displayName", e.target.value)}
+                  className="co-bio-input"
+                />
+              </label>
+
+              <label className="co-bio-field">
+                <span>Handle</span>
+                <input
+                  value={form.handle}
+                  onChange={(e) => updateField("handle", e.target.value.replace(/^@+/, ""))}
+                  className="co-bio-input"
+                />
+              </label>
             </div>
 
             <input
@@ -687,312 +754,226 @@ export default function BioBuilder() {
             />
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="space-y-2">
-              <div className="text-xs text-[color:var(--co-muted)]">Display name</div>
-              <input
-                value={form.displayName}
-                onChange={(e) => updateField("displayName", e.target.value)}
-                className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
-              />
-            </label>
+          <div className="co-bio-section">
+            <div className="co-bio-section-head">
+              <div>
+                <div className="co-bio-section-kicker">02 Positioning</div>
+                <div className="co-bio-section-title">Who it is for, what it does</div>
+              </div>
+              <button type="button" onClick={applyCoreContext} className="co-bio-quiet-button pressable">
+                Use context
+              </button>
+            </div>
 
-            <label className="space-y-2">
-              <div className="text-xs text-[color:var(--co-muted)]">Handle</div>
-              <input
-                value={form.handle}
-                onChange={(e) => updateField("handle", e.target.value.replace(/^@+/, ""))}
-                className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
-              />
-            </label>
+            <div className="co-bio-core-fields grid gap-3 md:grid-cols-2">
+              <label className="co-bio-field">
+                <span>Audience</span>
+                <input
+                  value={form.audience}
+                  onChange={(e) => updateField("audience", e.target.value)}
+                  className="co-bio-input"
+                />
+              </label>
 
-            <label className="space-y-2">
-              <div className="text-xs text-[color:var(--co-muted)]">Audience</div>
-              <input
-                value={form.audience}
-                onChange={(e) => updateField("audience", e.target.value)}
-                className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <div className="text-xs text-[color:var(--co-muted)]">Offer / outcome</div>
-              <input
-                value={form.offer}
-                onChange={(e) => updateField("offer", e.target.value)}
-                className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <div className="text-xs text-[color:var(--co-muted)]">Tone</div>
-              <select
-                value={form.tone}
-                onChange={(e) => updateField("tone", e.target.value as ToneKey)}
-                className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
-              >
-                <option value="clear">Clear</option>
-                <option value="warm">Warm</option>
-                <option value="premium">Premium</option>
-              </select>
-            </label>
-
-            <label className="space-y-2">
-              <div className="text-xs text-[color:var(--co-muted)]">CTA goal</div>
-              <select
-                value={form.ctaGoal}
-                onChange={(e) => updateField("ctaGoal", e.target.value as CtaGoalKey)}
-                className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
-              >
-                <option value="dm">Direct message</option>
-                <option value="book">Book a call</option>
-                <option value="join">Join waitlist</option>
-                <option value="browse">Browse work</option>
-              </select>
-            </label>
+              <label className="co-bio-field">
+                <span>Offer</span>
+                <input
+                  value={form.offer}
+                  onChange={(e) => updateField("offer", e.target.value)}
+                  className="co-bio-input"
+                />
+              </label>
+            </div>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)]">
+          <div className="co-bio-section co-bio-controls-section">
+            <div>
+              <div className="co-bio-section-kicker">03 Voice</div>
+              <div className="co-bio-segmented" role="group" aria-label="Tone">
+                {(["clear", "warm", "premium"] as const).map((tone) => (
+                  <button
+                    key={tone}
+                    type="button"
+                    aria-pressed={form.tone === tone}
+                    onClick={() => updateField("tone", tone)}
+                    className={[
+                      "co-bio-chip pressable",
+                      form.tone === tone ? "co-bio-chip--active" : "",
+                    ].join(" ")}
+                  >
+                    {TONE_LABELS[tone]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="co-bio-section-kicker">CTA goal</div>
+              <div className="co-bio-segmented" role="group" aria-label="CTA goal">
+                {(["dm", "book", "join", "browse"] as const).map((goal) => (
+                  <button
+                    key={goal}
+                    type="button"
+                    aria-pressed={form.ctaGoal === goal}
+                    onClick={() => updateField("ctaGoal", goal)}
+                    className={[
+                      "co-bio-chip pressable",
+                      form.ctaGoal === goal ? "co-bio-chip--active" : "",
+                    ].join(" ")}
+                  >
+                    {CTA_GOAL_SHORT_LABELS[goal]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="co-bio-advanced-card">
             <button
               type="button"
               onClick={() => setShowAdvanced((value) => !value)}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left pressable"
+              className="co-bio-advanced-toggle pressable"
             >
-              <span className="min-w-0">
-                <span className="block text-xs text-[color:var(--co-muted)]">Advanced details</span>
-                <span className="mt-1 block text-[13px] text-[color:var(--co-text)]/78">
-                  Category, niche, proof line, and link metadata.
-                </span>
-              </span>
-
-              <span className="shrink-0 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-                {showAdvanced ? "Hide" : "Show"}
-              </span>
+              <span>Advanced fields</span>
+              <span>{showAdvanced ? "Hide" : "Show"}</span>
             </button>
 
             {showAdvanced && (
-              <div className="grid gap-3 border-t border-[color:var(--co-border)] px-4 pb-4 pt-4 md:grid-cols-2">
-                <label className="space-y-2">
-                  <div className="text-xs text-[color:var(--co-muted)]">Category / role</div>
+              <div className="co-bio-advanced-fields grid gap-3 md:grid-cols-2">
+                <label className="co-bio-field">
+                  <span>Category</span>
                   <input
                     value={form.category}
                     onChange={(e) => updateField("category", e.target.value)}
-                    className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
+                    className="co-bio-input"
                   />
                 </label>
 
-                <label className="space-y-2">
-                  <div className="text-xs text-[color:var(--co-muted)]">Niche</div>
+                <label className="co-bio-field">
+                  <span>Niche</span>
                   <input
                     value={form.niche}
                     onChange={(e) => updateField("niche", e.target.value)}
-                    className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
+                    className="co-bio-input"
                   />
                 </label>
 
-                <label className="space-y-2 md:col-span-2">
-                  <div className="text-xs text-[color:var(--co-muted)]">Proof line</div>
+                <label className="co-bio-field md:col-span-2">
+                  <span>Proof line</span>
                   <input
                     value={form.proof}
                     onChange={(e) => updateField("proof", e.target.value)}
-                    className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
+                    className="co-bio-input"
                   />
                 </label>
 
-                <label className="space-y-2">
-                  <div className="text-xs text-[color:var(--co-muted)]">Link label</div>
+                <label className="co-bio-field">
+                  <span>Link label</span>
                   <input
                     value={form.linkLabel}
                     onChange={(e) => updateField("linkLabel", e.target.value)}
-                    className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
+                    className="co-bio-input"
                   />
                 </label>
 
-                <label className="space-y-2">
-                  <div className="text-xs text-[color:var(--co-muted)]">Link URL</div>
+                <label className="co-bio-field">
+                  <span>Website</span>
                   <input
                     value={form.linkUrl}
                     onChange={(e) => updateField("linkUrl", e.target.value)}
-                    className="w-full rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-2.5 text-sm text-[color:var(--co-text)] outline-none"
+                    className="co-bio-input"
                   />
                 </label>
               </div>
             )}
           </div>
 
-          <div className="mt-4 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs text-[color:var(--co-muted)]">Generated bio variants</div>
-                <div className="mt-1 text-[13px] leading-5 text-[color:var(--co-text)]/78">
-                  Preview reflects the latest local generation, ready for future API replacement.
-                </div>
+          <div className="co-bio-section co-bio-variants-card">
+            <div className="co-bio-section-head">
+              <div>
+                <div className="co-bio-section-kicker">04 Bio variant</div>
+                <div className="co-bio-section-title">{activeVariant.label}</div>
               </div>
-
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <div className="text-[11px] text-[color:var(--co-muted)]">
-                  Local mock generation. API-ready later.
-                </div>
-                <button
-                  type="button"
-                  onClick={onGenerateVariants}
-                  className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90 pressable"
-                >
-                  Generate variants
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-                {hasUngeneratedChanges
-                  ? "Draft changed"
-                  : `Generated locally ${formatGeneratedTime(generatedAt)}`}
-              </div>
-
-              <button
-                type="button"
-                onClick={applyCoreContext}
-                className="rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1 text-[11px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
-              >
-                Use core context
+              <button type="button" onClick={onGenerateVariants} className="co-bio-generate-button pressable">
+                Generate
               </button>
-
-              {generatedVariants.map((variant) => {
-                const active = variant.id === activeVariant.id;
-                return (
-                  <button
-                    key={variant.id}
-                    type="button"
-                    onClick={() => setActiveVariantId(variant.id)}
-                    className={[
-                      "rounded-full border px-3 py-1.5 text-xs transition pressable",
-                      "border-[color:var(--co-border)]",
-                      active
-                        ? "bg-[color:var(--co-surface)] text-[color:var(--co-text)]"
-                        : "bg-transparent text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)]",
-                    ].join(" ")}
-                  >
-                    {variant.label}
-                  </button>
-                );
-              })}
             </div>
 
-            <div className="mt-3 rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-[color:var(--co-text)]">
-                    {activeVariant.label} variant
-                  </div>
-                  <div className="mt-1 text-[12px] text-[color:var(--co-muted)]">
-                    {activeVariant.description}
-                  </div>
-                </div>
+            <div className="co-bio-segmented co-bio-variant-tabs" role="group" aria-label="Bio variants">
+              {generatedVariants.map((variant) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  aria-pressed={variant.id === activeVariant.id}
+                  onClick={() => setActiveVariantId(variant.id)}
+                  className={[
+                    "co-bio-chip pressable",
+                    variant.id === activeVariant.id ? "co-bio-chip--active" : "",
+                  ].join(" ")}
+                >
+                  {variant.label}
+                </button>
+              ))}
+            </div>
 
-                <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-                  Selected variant
-                </div>
+            <div className="co-bio-result-card">
+              <div className="co-bio-result-head">
+                <span>Bio draft</span>
+                <span>{activeVariant.label} direction</span>
               </div>
-
-              <div className="mt-4 space-y-4 text-[13px] text-[color:var(--co-text)]">
-                <div className="space-y-1">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--co-muted)]">
-                    Bio
-                  </div>
-                  {activeVariant.bioLines.map((line) => (
-                    <div key={line}>{line}</div>
-                  ))}
-                  {activeVariant.proofLine && (
-                    <div className="text-[color:var(--co-text)]/74">{activeVariant.proofLine}</div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--co-muted)]">
-                    CTA
-                  </div>
-                  <div>{activeVariant.ctaLine}</div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--co-muted)]">
-                    Highlights
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {activeVariant.highlights.map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[12px] text-[color:var(--co-muted)]"
-                      >
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div className="co-bio-result-lines">
+                {activeVariant.bioLines.map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
+                {activeVariant.proofLine ? <div>{activeVariant.proofLine}</div> : null}
+              </div>
+              <div className="co-bio-result-link">
+                {generatedProfile.linkLabel} / {generatedProfile.linkUrl}
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="co-bio-tool-actions">
+            <button type="button" onClick={onCopyBio} className="co-bio-quiet-button pressable">
+              Copy bio
+            </button>
+            <button type="button" onClick={onCopyCta} className="co-bio-quiet-button pressable">
+              Copy CTA
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadTextFile(profilePackFilename, profilePackText)}
+              className="co-bio-download-button pressable"
+            >
+              Download Bio Pack
+            </button>
+          </div>
+
+          <div className="co-bio-footer-actions">
+            <div>{actionStatus}</div>
             <button
               type="button"
               onClick={() =>
                 hasConnectedExportPack ? navigate("/prototype/export") : navigate("/prototype/library")
               }
-              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
+              className="pressable"
             >
-              {hasConnectedExportPack ? "Back to Export" : "Build content pack first"}
+              {hasConnectedExportPack ? "Back to Export" : "Start from Library"}
             </button>
-
-            <button
-              type="button"
-              onClick={onReset}
-              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
-            >
-              Reset form
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-              {actionStatus}
-            </div>
-
-            <button
-              type="button"
-              onClick={onCopyBio}
-              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
-            >
-              Copy bio
-            </button>
-
-            <button
-              type="button"
-              onClick={onCopyCta}
-              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none"
-            >
-              Copy CTA
-            </button>
-
-            <button
-              type="button"
-              onClick={() => downloadTextFile(profilePackFilename, profilePackText)}
-              className="flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable sm:flex-none"
-            >
-              Download .txt
+            <button type="button" onClick={onReset} className="co-bio-reset-action pressable">
+              Reset draft
             </button>
           </div>
         </div>
 
-        <div className="min-w-0 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 shadow-sm sm:p-5">
+        <div className="co-bio-preview-panel co-stage-card min-h-0 min-w-0 rounded-2xl">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
-                Profile simulator
+                Profile Preview
               </div>
               <div className="mt-2 text-lg font-medium tracking-[-0.03em] text-[color:var(--co-text)]">
-                Instagram-style preview
+                Profile Preview
               </div>
             </div>
 
@@ -1001,7 +982,9 @@ export default function BioBuilder() {
             </div>
           </div>
 
-          <div className="mt-4 max-w-full overflow-hidden rounded-[1.5rem] border border-[color:var(--co-border)] bg-[#111317] shadow-[0_18px_60px_rgba(0,0,0,0.22)] sm:rounded-[2rem]">
+          <div className="co-iphone-shell" aria-label="iPhone 17 Pro Max profile preview">
+            <div className="co-iphone-island" aria-hidden="true" />
+            <div className="co-iphone-screen">
             <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
               <div className="min-w-0 truncate text-[13px] font-medium text-white/92">
                 {generatedProfile.handle || "yourhandle"}
@@ -1012,7 +995,15 @@ export default function BioBuilder() {
               </div>
             </div>
 
-            <div className="p-4 sm:p-5">
+            <div
+              ref={phoneScrollRef}
+              className="co-phone-profile-body co-scrollbar"
+              onPointerDown={onPhonePointerDown}
+              onPointerMove={onPhonePointerMove}
+              onPointerUp={endPhoneDrag}
+              onPointerCancel={endPhoneDrag}
+              onPointerLeave={endPhoneDrag}
+            >
               <div className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[84px_minmax(0,1fr)]">
                 <div className="h-[72px] w-[72px] overflow-hidden rounded-full border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))] sm:h-[84px] sm:w-[84px]">
                   <img src={avatarUrl} alt="Profile avatar" className="h-full w-full object-cover opacity-95" />
@@ -1059,19 +1050,14 @@ export default function BioBuilder() {
                   {generatedProfile.category || "Creator / Studio / Category"}
                 </div>
 
-                <div className="max-w-[34ch] space-y-1 text-[13px] leading-6 text-white/82">
-                  {activeVariant.bioLines.map((line) => (
+                <div className="max-w-[32ch] space-y-1 text-[13px] leading-6 text-white/82">
+                  {activeVariant.bioLines.slice(0, 2).map((line) => (
                     <div key={line}>{line}</div>
                   ))}
-                  {activeVariant.proofLine && <div className="text-white/60">{activeVariant.proofLine}</div>}
                 </div>
 
                 <div className="break-words text-[12px] text-[#8ab4ff]">
                   {generatedProfile.linkLabel} / {generatedProfile.linkUrl}
-                </div>
-
-                <div className="inline-flex max-w-full rounded-full border border-white/10 bg-[#1a1d22] px-3 py-2 text-[12px] text-white/78">
-                  {activeVariant.ctaLine}
                 </div>
               </div>
 
@@ -1080,7 +1066,7 @@ export default function BioBuilder() {
                   <div key={item} className="flex min-w-[62px] flex-col items-center gap-2">
                     <div className="h-[58px] w-[58px] overflow-hidden rounded-full border border-white/12 bg-[#191c21]">
                       <img
-                        src={profileGrid[(index + 1) % profileGrid.length] ?? DEMO_GRID[(index + 1) % DEMO_GRID.length]}
+                        src={profileGrid[(index + 1) % profileGrid.length] ?? STARTER_GRID[(index + 1) % STARTER_GRID.length]}
                         alt={item}
                         className="h-full w-full object-cover opacity-90"
                       />
@@ -1100,27 +1086,25 @@ export default function BioBuilder() {
 
               <div className="mt-3 grid grid-cols-3 gap-[2px]">
                 {profileGrid.map((src, index) => (
-                  <div key={`${src}-${index}`} className="aspect-square overflow-hidden bg-white/5">
+                  <div key={`${src}-${index}`} className="co-bio-phone-post overflow-hidden bg-white/5">
                     <img
                       src={src}
                       alt={`Grid post ${index + 1}`}
                       className="h-full w-full object-cover transition duration-300 hover:scale-[1.02]"
+                      draggable={false}
                     />
                   </div>
                 ))}
               </div>
             </div>
+            </div>
           </div>
 
-          <div className="mt-4 text-[12px] leading-6 text-[color:var(--co-muted)]">
-            {usingUploadedGrid
-              ? "Using the uploaded grid for this profile preview."
-              : usingExportPack
-                ? "Using the current 3x3 export pack from CreatorOps."
-                : "Standalone mode. Upload a grid or use demo assets."}
+          <div className="co-bio-preview-note text-[12px] leading-6 text-[color:var(--co-muted)]">
+            {profilePreviewNote}
           </div>
 
-          <div className="mt-4 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-4 py-3">
+          <div className="co-bio-grid-control rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -1134,11 +1118,7 @@ export default function BioBuilder() {
                 </div>
 
                 <p className="mt-1 max-w-[42ch] text-[12px] leading-5 text-[color:var(--co-text)]/68 sm:whitespace-nowrap">
-                  {usingUploadedGrid
-                    ? "Uploaded images are driving this preview."
-                    : usingExportPack
-                      ? "Connected to the current CreatorOps export pack."
-                      : "Demo grid until upload or content pack."}
+                  {profileGridNote}
                 </p>
               </div>
 
@@ -1171,7 +1151,7 @@ export default function BioBuilder() {
                     onClick={() => navigate("/prototype/library")}
                     className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-3 py-1.5 text-[12px] text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none"
                   >
-                    Build content pack first
+                    Start from Library
                   </button>
                 ) : null}
               </div>

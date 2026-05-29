@@ -17,18 +17,18 @@ export default function OnboardingHint() {
     () => [
       {
         n: "1",
-        title: "Upload 6–12 photos",
-        desc: "Use the Uploads panel on the right (drag & drop works).",
+        title: "Add 6-12 photos",
+        desc: "Start the Week Pack from Library or drag images into the field.",
       },
       {
         n: "2",
-        title: "Select 3–7 to steer (optional)",
-        desc: "Pick a few posts that represent the vibe you want.",
+        title: "Select the rhythm",
+        desc: "Choose the assets that best represent the week.",
       },
       {
         n: "3",
-        title: "Smart Mix → Pick best → Export ZIP",
-        desc: "Generate ranked grids, choose the best, then download the pack.",
+        title: "Planner -> Captions -> Export",
+        desc: "Shape the board, write the voice layer, then download the Export Pack.",
       },
     ],
     []
@@ -67,16 +67,14 @@ export default function OnboardingHint() {
   if (!visible) return null;
 
   return (
-    <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-[1.05rem] border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] p-2.5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="text-sm text-[color:var(--co-text)]">Quick start</div>
-          <div className="mt-1 text-xs text-[color:var(--co-muted)]">
-            30 seconds to your first export pack.
-          </div>
+          <div className="mt-0.5 text-xs text-[color:var(--co-muted)]">Build a Week Pack in under a minute.</div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={dismissForSession}
@@ -92,30 +90,26 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
             title="Hide this hint permanently on this device"
           >
-            Don’t show again
+            Hide this
           </button>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
         {steps.map((s) => (
           <div
             key={s.n}
-            className="rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3"
+            className="rounded-xl border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface-active)] px-2.5 py-2"
           >
             <div className="flex items-center gap-2">
-              <div className="grid h-6 w-6 place-items-center rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-bg)]/40 text-xs text-[color:var(--co-text)]">
+              <div className="grid h-5 w-5 place-items-center rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-bg)]/40 text-[11px] text-[color:var(--co-text)]">
                 {s.n}
               </div>
               <div className="text-xs text-[color:var(--co-text)]">{s.title}</div>
             </div>
-            <div className="mt-2 text-[11px] text-[color:var(--co-muted)]">{s.desc}</div>
+            <div className="mt-1 text-[11px] text-[color:var(--co-muted)]">{s.desc}</div>
           </div>
         ))}
-      </div>
-
-      <div className="mt-3 text-[11px] text-[color:var(--co-muted)]">
-        Beta note: uploads reset on refresh.
       </div>
     </div>
   );

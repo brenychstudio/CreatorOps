@@ -1,5 +1,5 @@
 // src/pages/prototype/Planner.tsx
-import { useMemo, useState } from "react";
+import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { usePrototypeStore } from "../../store/prototypeStore";
 import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
@@ -38,10 +38,18 @@ export default function Planner() {
   const mixes = usePrototypeStore((s) => s.mixes);
   const bestMixId = usePrototypeStore((s) => s.bestMixId);
   const getAssetById = usePrototypeStore((s) => s.getAssetById);
+  const buildSequenceFromBest = usePrototypeStore((s) => s.buildSequenceFromBest);
+  const sendSequenceToPlanner = usePrototypeStore((s) => s.sendSequenceToPlanner);
   const setSlot = usePrototypeStore((s) => s.setPlannerSlot);
   const clearSlot = usePrototypeStore((s) => s.clearPlannerSlot);
 
   const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const phoneDragRef = useRef({
+    pointerId: -1,
+    startY: 0,
+    scrollTop: 0,
+    dragging: false,
+  });
 
   const [dragging, setDragging] = useState(false);
   const [overKey, setOverKey] = useState<string | null>(null);
@@ -103,6 +111,25 @@ export default function Planner() {
 
   const filledWeekCount = weekA.filter(Boolean).length;
   const hasAnyPlan = filledWeekCount > 0 || Boolean(nextAStored) || Boolean(nextBStored);
+  const plannerPreviewSlots = [
+    ...Array.from({ length: 7 }, (_, dayIndex) => ({
+      key: `week-${dayIndex}`,
+      label: dayNames[dayIndex],
+      tileId: weekA[dayIndex],
+    })),
+    { key: "next-a", label: "Next", tileId: nextA },
+    { key: "next-b", label: "Next", tileId: nextB },
+  ];
+  const heroPreview = plannerPreviewSlots.find((slot) => Boolean(slot.tileId)) ?? plannerPreviewSlots[0];
+  const previewAvatarUrl = heroPreview?.tileId ? getAssetById(heroPreview.tileId)?.thumbUrl : undefined;
+  const highlightSlots = plannerPreviewSlots.filter((slot) => Boolean(slot.tileId)).slice(0, 4);
+
+  useEffect(() => {
+    if (mixes.length && bestMixId && !hasAnyPlan) {
+      buildSequenceFromBest();
+      sendSequenceToPlanner();
+    }
+  }, [bestMixId, buildSequenceFromBest, hasAnyPlan, mixes.length, sendSequenceToPlanner]);
 
   const handleDrop = (targetDayIndex: number, payload: DragPayload) => {
     const draggedId = payload.assetId;
@@ -172,12 +199,12 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
 
     if (!a) {
       return (
-        <div className="aspect-[4/5] w-full rounded-2xl bg-[color:var(--co-surface)] border border-[color:var(--co-border)]" />
+        <div className="aspect-[4/5] w-full bg-[color:var(--co-surface)]" />
       );
     }
 
     return (
-      <div className="aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[color:var(--co-surface)] border border-[color:var(--co-border)]">
+      <div className="aspect-[4/5] w-full overflow-hidden bg-[color:var(--co-surface)]">
         <img
           src={a.thumbUrl}
           alt=""
@@ -228,8 +255,8 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
       <div
         {...dropBase({ key, dayIndex })}
         className={[
-          "group relative rounded-3xl border bg-[color:var(--co-surface-2)] p-3 transition",
-          "border-[color:var(--co-border)]",
+          "group relative overflow-hidden rounded-[1.05rem] border bg-[color:var(--co-surface)] transition",
+          "border-[color:var(--co-border-soft)]",
           "hover:opacity-[0.97]",
           isOver ? "ring-2 ring-[color:var(--co-text)]/10" : "",
         ].join(" ")}
@@ -260,8 +287,6 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
           {/* Label overlay */}
           <div className="pointer-events-none absolute left-2 top-2 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]/80 px-2 py-1 text-[11px] text-[color:var(--co-muted)] backdrop-blur">
             <span className="text-[color:var(--co-text)]/80">{label}</span>
-            <span className="mx-1 text-[color:var(--co-muted)]/60">·</span>
-            <span className="text-[color:var(--co-muted)]/80">4:5</span>
           </div>
 
           {/* Clear overlay (тільки якщо це stored слот і там щось є) */}
@@ -284,13 +309,67 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
     );
   };
 
+  const PhoneGridTile = (props: { tileId?: string }) => {
+    const asset = props.tileId ? getAssetById(props.tileId) : undefined;
 
-  // Flow guard: Planner expects sequence → planner handoff (or at least a best mix)
+    return (
+      <div className="co-planner-phone-tile">
+        {asset ? (
+          <img
+            src={asset.thumbUrl}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="co-planner-phone-empty" />
+        )}
+      </div>
+    );
+  };
+
+  const onPhonePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, textarea, select")) return;
+
+    phoneDragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      scrollTop: event.currentTarget.scrollTop,
+      dragging: true,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPhonePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = phoneDragRef.current;
+    if (!drag.dragging || drag.pointerId !== event.pointerId) return;
+    event.currentTarget.scrollTop = drag.scrollTop + drag.startY - event.clientY;
+  };
+
+  const endPhoneDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = phoneDragRef.current;
+    if (drag.pointerId === event.pointerId && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    phoneDragRef.current = {
+      pointerId: -1,
+      startY: 0,
+      scrollTop: 0,
+      dragging: false,
+    };
+  };
+
+
+  // Flow guard: Planner expects a selected Smart Mix and can prepare its own board.
   if (!mixes.length) {
     return (
       <FlowEmptyState
         title="No mixes yet"
-        desc="Generate Smart Mix candidates first, then send a sequence to Planner."
+        desc="Generate Smart Mix candidates first, then shape the publishing board."
         primaryLabel="Go to Library"
         primaryTo="/prototype/library"
         secondaryLabel="Go to Smart Mix"
@@ -303,7 +382,7 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
     return (
       <FlowEmptyState
         title="Pick a best grid first"
-        desc="Choose the strongest Smart Mix candidate, then send it to Planner."
+        desc="Choose the strongest Smart Mix candidate, then shape the weekly rhythm."
         primaryLabel="Go to Smart Mix"
         primaryTo="/prototype/smart-mix"
         secondaryLabel="Back to Library"
@@ -315,10 +394,10 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
   if (!hasAnyPlan) {
     return (
       <FlowEmptyState
-        title="No plan yet"
-        desc="Send your week sequence to Planner to auto-fill the grid."
-        primaryLabel="Go to Sequence"
-        primaryTo="/prototype/sequence"
+        title="Preparing board"
+        desc="Planner is shaping the selected Smart Mix into a weekly publishing rhythm."
+        primaryLabel="Back to Smart Mix"
+        primaryTo="/prototype/smart-mix"
         secondaryLabel="Back to Smart Mix"
         secondaryTo="/prototype/smart-mix"
       />
@@ -326,27 +405,27 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
   }
 
   return (
-    <div className="min-w-0 space-y-4 text-[color:var(--co-text)]">
+    <div className="co-workspace-page co-scene co-board-stage">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="co-scene-header flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-base text-[color:var(--co-text)]">Planner</div>
           <div className="mt-1 text-sm text-[color:var(--co-muted)]">
-            Profile preview. Drag to reorder the week.
+            Publishing board for shaping the weekly rhythm before captions.
           </div>
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button
             type="button"
-            onClick={() => navigate("/prototype/sequence")}
+            onClick={() => navigate("/prototype/smart-mix")}
             className={[
               "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
               pressable,
             ].join(" ")}
           >
-            Back to Sequence
+            Back to Smart Mix
           </button>
 
           <button
@@ -358,40 +437,159 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
               pressable,
             ].join(" ")}
           >
-            Continue
+            Continue to Captions
           </button>
         </div>
       </div>
 
       {/* 3×3 grid: 7 week slots + 2 Next slots (droppable) */}
-      <div className="mx-auto w-full max-w-[680px]">
-        <div className="grid grid-cols-3 gap-2 sm:gap-[12px]">
-          {Array.from({ length: 7 }).map((_, dayIndex) => (
-            <div key={dayIndex}>
+      <div className="co-planner-workbench">
+        <div className="co-workspace-board co-workspace-board--planner">
+          <div className="co-publishing-board co-planner-board">
+            <div className="flex items-center justify-between gap-3 pb-2">
+              <div>
+                <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Publishing board</div>
+                <div className="mt-1 text-xs text-[color:var(--co-muted)]">This order drives Captions and Export.</div>
+              </div>
+              <div className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] tabular-nums text-[color:var(--co-muted)]">
+                9 slots
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1">
+              {Array.from({ length: 7 }).map((_, dayIndex) => (
+                <div key={dayIndex}>
+                  <TileFrame
+                    dayIndex={dayIndex}
+                    label={dayNames[dayIndex]}
+                    tileId={weekA[dayIndex]}
+                    stored={Boolean(weekA[dayIndex])}
+                  />
+                </div>
+              ))}
+
               <TileFrame
-                dayIndex={dayIndex}
-                label={dayNames[dayIndex]}
-                tileId={weekA[dayIndex]}
-                stored={Boolean(weekA[dayIndex])}
+                dayIndex={7}
+                label="Next"
+                tileId={nextA}
+                isNext
+                stored={Boolean(nextAStored)} // stored only if user dropped there
+              />
+              <TileFrame
+                dayIndex={8}
+                label="Next"
+                tileId={nextB}
+                isNext
+                stored={Boolean(nextBStored)}
               />
             </div>
-          ))}
-
-          <TileFrame
-            dayIndex={7}
-            label="Next"
-            tileId={nextA}
-            isNext
-            stored={Boolean(nextAStored)} // stored only if user dropped there
-          />
-          <TileFrame
-            dayIndex={8}
-            label="Next"
-            tileId={nextB}
-            isNext
-            stored={Boolean(nextBStored)}
-          />
+          </div>
         </div>
+
+        <aside className="co-planner-preview-panel co-stage-card">
+          <div className="co-planner-preview-heading">
+            <div>
+              <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Feed Preview</div>
+              <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Week Pack rhythm</div>
+            </div>
+            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+              Synced
+            </div>
+          </div>
+
+          <div className="co-iphone-shell co-planner-phone-shell" aria-label="Planner mobile preview">
+            <div className="co-iphone-island" aria-hidden="true" />
+            <div className="co-iphone-screen">
+              <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
+                <div className="min-w-0 truncate text-[13px] font-medium text-white/92">creatorops</div>
+                <div className="flex items-center gap-3 text-white/70">
+                  <span className="text-xs">+</span>
+                  <span className="text-xs">|||</span>
+                </div>
+              </div>
+
+              <div
+                className="co-planner-phone-body co-scrollbar"
+                onPointerDown={onPhonePointerDown}
+                onPointerMove={onPhonePointerMove}
+                onPointerUp={endPhoneDrag}
+                onPointerCancel={endPhoneDrag}
+                onPointerLeave={endPhoneDrag}
+              >
+                <div className="co-planner-phone-profile">
+                  <div className="co-planner-phone-account">
+                    <div className="co-planner-phone-avatar">
+                      {previewAvatarUrl ? (
+                        <img src={previewAvatarUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                      ) : null}
+                    </div>
+                    <div className="co-planner-phone-stats" aria-label="Feed stats">
+                      <div>
+                        <strong>9</strong>
+                        <span>posts</span>
+                      </div>
+                      <div>
+                        <strong>12.4K</strong>
+                        <span>followers</span>
+                      </div>
+                      <div>
+                        <strong>321</strong>
+                        <span>following</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="co-planner-phone-actions">
+                    <button type="button">Follow</button>
+                    <button type="button">Message</button>
+                  </div>
+
+                  <div className="co-planner-phone-bio">
+                    <strong>CreatorOps</strong>
+                    <span>Calm weekly content systems.</span>
+                    <span>Week Pack ready for captions.</span>
+                    <a href="#planner-preview" onClick={(event) => event.preventDefault()}>
+                      creatorops.studio/week-pack
+                    </a>
+                  </div>
+
+                  <div className="co-planner-phone-highlights" aria-label="Profile highlights">
+                    {highlightSlots.map((slot, index) => {
+                      const asset = slot.tileId ? getAssetById(slot.tileId) : undefined;
+                      const labels = ["Rhythm", "Offer", "Mood", "CTA"];
+
+                      return (
+                        <div key={slot.key} className="co-planner-phone-highlight">
+                          <div className="co-planner-phone-highlight-thumb">
+                            {asset ? (
+                              <img src={asset.thumbUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                            ) : null}
+                          </div>
+                          <span>{labels[index] ?? slot.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="co-planner-phone-tabs">
+                  <span>Posts</span>
+                  <span>Reels</span>
+                  <span>Tagged</span>
+                </div>
+
+                <div className="co-planner-phone-grid">
+                  {plannerPreviewSlots.map((slot) => (
+                    <PhoneGridTile
+                      key={slot.key}
+                      tileId={slot.tileId}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

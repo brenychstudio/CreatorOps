@@ -29,10 +29,29 @@ async function safeCopy(text: string) {
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
+function slotLabel(dayIndex: number) {
+  return dayIndex < DAYS.length ? DAYS[dayIndex] : "Next";
+}
+
+function normalizeHashtags(input: string) {
+  return input
+    .split(/[\s,]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .map((tag) => {
+      const clean = tag.replace(/^#+/, "");
+      return clean ? `#${clean}` : "";
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+function normalizePostCopy(value: string, postNumber: number) {
+  return value.replace(/\bPost #\d+\b/g, `Post #${postNumber}`);
+}
+
 export default function Captions() {
   const navigate = useNavigate();
-
-  // tactile press (same as other pages)
   const pressable = "transition active:translate-y-[1px] active:scale-[0.98]";
 
   const planner = usePrototypeStore((s) => s.planner);
@@ -41,84 +60,186 @@ export default function Captions() {
 
   const getAssetById = usePrototypeStore((s) => s.getAssetById);
   const generateCaptions = usePrototypeStore((s) => s.generateCaptions);
+  const setGeneratedCaption = usePrototypeStore((s) => s.setGeneratedCaption);
   const setAiPrompt = usePrototypeStore((s) => s.setAiPrompt);
-  const generateDraftFromPrompt = usePrototypeStore((s) => s.generateDraftFromPrompt);
 
   const [activeDay, setActiveDay] = useState<number>(0);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [drafting, setDrafting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationSource, setGenerationSource] = useState<"local" | "openai" | "fallback">(
+    captions.source ?? "local"
+  );
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [editableCaption, setEditableCaption] = useState(captions.variants[0] ?? "");
+  const [editableCta, setEditableCta] = useState(captions.cta ?? "");
+  const [editableTags, setEditableTags] = useState(captions.hashtags.join(" "));
 
-  const flashCopied = (key: string) => {
-    setCopiedKey(key);
-    window.setTimeout(() => setCopiedKey(null), 900);
-  };
-
-  const weekTiles = useMemo(() => {
-    return DAYS.map((_, dayIndex) => {
+  const packTiles = useMemo(() => {
+    return Array.from({ length: 9 }, (_, dayIndex) => {
       const tileId = planner.find((p) => p.dayIndex === dayIndex && p.slotIndex === 0)?.tileId;
       const asset = tileId ? getAssetById(tileId) : undefined;
       return { dayIndex, tileId, asset };
     });
   }, [planner, getAssetById]);
 
-  const hasWeekPlan = weekTiles.some((d) => Boolean(d.tileId));
+  const hasWeekPlan = packTiles.some((d) => Boolean(d.tileId));
+  const plannedPosts = useMemo(() => packTiles.filter((d) => d.tileId && d.asset), [packTiles]);
 
-  // Choose a sensible default active day (first day that has a tile)
   useEffect(() => {
-    const firstWithTile = weekTiles.find((d) => !!d.tileId)?.dayIndex ?? 0;
+    const firstWithTile = packTiles.find((d) => !!d.tileId)?.dayIndex ?? 0;
     setActiveDay((prev) => {
-      if (weekTiles[prev]?.tileId) return prev;
+      if (packTiles.some((d) => d.dayIndex === prev && d.tileId)) return prev;
       return firstWithTile;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekTiles.map((d) => d.tileId).join("|")]);
+  }, [packTiles.map((d) => d.tileId).join("|")]);
 
-  const active = weekTiles[activeDay];
+  const activePostIndex = Math.max(0, plannedPosts.findIndex((d) => d.dayIndex === activeDay));
+  const active = packTiles.find((d) => d.dayIndex === activeDay);
+  const activePostNumber = activePostIndex + 1;
+  const activeSlotLabel = slotLabel(activeDay);
+  const anchor = active?.tileId ? `${activeSlotLabel} / Post #${activePostNumber}` : `${activeSlotLabel} / -`;
 
-  // UI-only: show minimal number instead of p-xx
-  const anchor = active?.tileId ? `${DAYS[activeDay]} / #${activeDay + 1}` : `${DAYS[activeDay]} / -`;
+  const selectPostDay = (dayIndex: number) => {
+    setActiveDay(dayIndex);
+  };
 
-  // Ensure there is content on first visit and on day switch
   useEffect(() => {
     if (!active?.tileId) return;
     generateCaptions(captions.tone, captions.length, active.tileId);
+    setGenerationSource("local");
+    setGenerationError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.tileId]);
 
-  const regenerate = () => {
-    if (!active?.tileId) return;
-    generateCaptions(captions.tone, captions.length, active.tileId);
+  const primaryCaption = normalizePostCopy(captions.variants[0] ?? "", activePostNumber);
+  const supportingCaption = normalizePostCopy(captions.variants[1] ?? "", activePostNumber);
+  const ctaByTone: Record<string, string> = {
+    Minimal: "Save this for your next content batch.",
+    Neutral: "Use this as a reference for the next weekly plan.",
+    Emotional: "Keep this close when the week needs direction.",
+    Sales: "Turn this into your next repeatable content system.",
+  };
+  const cta = captions.cta ?? ctaByTone[captions.tone] ?? ctaByTone.Minimal;
+  const hashtagKey = captions.hashtags.join("|");
+  const hashtagItems = normalizeHashtags(editableTags);
+
+  useEffect(() => {
+    setEditableCaption(primaryCaption);
+    setEditableCta(cta);
+    setEditableTags(captions.hashtags.join(" "));
+    setGenerationSource(captions.source ?? "local");
+  }, [captions.source, cta, hashtagKey, primaryCaption]);
+
+  const flashCopied = (key: string) => {
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 900);
+  };
+
+  const persistComposer = (next?: { caption?: string; cta?: string; tags?: string }) => {
+    const caption = next?.caption ?? editableCaption;
+    const ctaLine = next?.cta ?? editableCta;
+    const tagText = next?.tags ?? editableTags;
+
+    setGeneratedCaption(
+      {
+        id: active?.tileId ?? `post-${activeDay + 1}`,
+        caption,
+        hashtags: normalizeHashtags(tagText),
+        cta: ctaLine,
+        alt: supportingCaption,
+      },
+      generationSource
+    );
   };
 
   const copyCaption = async () => {
-    const v = captions.variants[0] ?? "";
-    const ok = await safeCopy(v);
+    const ok = await safeCopy(editableCaption);
     if (ok) flashCopied("caption");
   };
 
-  const copyAlt = async () => {
-    const v = captions.variants[1] ?? "";
-    const ok = await safeCopy(v);
-    if (ok) flashCopied("alt");
-  };
-
   const copyHashtags = async () => {
-    const ok = await safeCopy(captions.hashtags.join(" "));
+    const ok = await safeCopy(normalizeHashtags(editableTags).join(" "));
     if (ok) flashCopied("hashtags");
   };
 
-  const copyDraft = async () => {
-    const ok = await safeCopy(ai.draft);
-    if (ok) flashCopied("draft");
+  const buildGenerationPayload = () => {
+    const activeAsset = active?.asset;
+    const visualNotes = [
+      activeAsset?.ratio ? `${activeAsset.ratio} visual` : undefined,
+      activeAsset?.series ? `${activeAsset.series} source set` : undefined,
+      activeAsset?.mood ? `${activeAsset.mood} mood` : undefined,
+      activeAsset?.analysis ? `saturation ${activeAsset.analysis.saturation.toFixed(2)}` : undefined,
+    ].filter((item): item is string => Boolean(item));
+
+    return {
+      mode: "single",
+      tone: captions.tone.toLowerCase(),
+      length: captions.length.toLowerCase(),
+      post: {
+        id: active?.tileId ?? `post-${activeDay + 1}`,
+        day: activeSlotLabel,
+        slot: `Post #${activePostNumber}`,
+        captionSeed: ai.prompt,
+        visualNotes,
+        assetTags: [activeAsset?.series, activeAsset?.ratio, activeAsset?.source].filter(Boolean),
+      },
+      pack: packTiles
+        .filter((d) => d.tileId)
+        .slice(0, 9)
+        .map((d, index) => ({
+          id: d.tileId!,
+          day: slotLabel(d.dayIndex),
+          slot: `Post #${index + 1}`,
+          visualNotes: [d.asset?.ratio, d.asset?.series].filter(Boolean),
+          assetTags: [d.asset?.series, d.asset?.ratio, d.asset?.source].filter(Boolean),
+        })),
+      brandContext: {
+        audience: "creators and small brands",
+        offer: "turn content chaos into a calm publishing system",
+        niche: "creator workflow operations",
+        voice: captions.tone.toLowerCase(),
+        ctaGoal: "save or use for the next content batch",
+      },
+    };
   };
 
-  const onGenerateDraft = async () => {
-    if (drafting) return;
-    setDrafting(true);
+  const onGenerateCaptions = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    setGenerationError(null);
     try {
-      await Promise.resolve(generateDraftFromPrompt(ai.prompt, active?.tileId));
+      const response = await fetch("/api/generate-captions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildGenerationPayload()),
+      });
+
+      if (!response.ok) throw new Error("Caption endpoint unavailable.");
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        source?: "openai" | "fallback";
+        results?: Array<{ id: string; caption: string; hashtags: string[]; cta: string; alt: string }>;
+      };
+
+      const result = data.results?.[0];
+      if (!data.ok || !result || !data.source) throw new Error("Caption endpoint unavailable.");
+
+      setGeneratedCaption(result, data.source);
+      setGenerationSource(data.source);
     } finally {
-      setDrafting(false);
+      setIsGenerating(false);
+    }
+  };
+
+  const onGenerateWithFallback = async () => {
+    try {
+      await onGenerateCaptions();
+    } catch {
+      if (active?.tileId) generateCaptions(captions.tone, captions.length, active.tileId);
+      setGenerationSource("fallback");
+      setGenerationError("Using backup draft.");
     }
   };
 
@@ -126,11 +247,16 @@ export default function Captions() {
     <button
       key={t}
       type="button"
-      onClick={() => active?.tileId && generateCaptions(t, captions.length, active.tileId)}
+      onClick={() => {
+        if (!active?.tileId) return;
+        generateCaptions(t, captions.length, active.tileId);
+        setGenerationSource("local");
+        setGenerationError(null);
+      }}
       className={[
-        "rounded-full border px-3 py-1.5 text-xs transition",
+        "rounded-full border px-2.5 py-1 text-[11px] transition sm:px-3",
         captions.tone === t
-          ? "border-[color:var(--co-border)] bg-[color:var(--co-text)] text-[color:var(--co-bg)]"
+          ? "border-[color:var(--co-border)] bg-[color:var(--co-surface-active)] text-[color:var(--co-text)]"
           : "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] hover:opacity-90",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
         pressable,
@@ -144,11 +270,16 @@ export default function Captions() {
     <button
       key={l}
       type="button"
-      onClick={() => active?.tileId && generateCaptions(captions.tone, l, active.tileId)}
+      onClick={() => {
+        if (!active?.tileId) return;
+        generateCaptions(captions.tone, l, active.tileId);
+        setGenerationSource("local");
+        setGenerationError(null);
+      }}
       className={[
-        "rounded-full border px-3 py-1.5 text-xs transition",
+        "rounded-full border px-2.5 py-1 text-[11px] transition sm:px-3",
         captions.length === l
-          ? "border-[color:var(--co-border)] bg-[color:var(--co-text)] text-[color:var(--co-bg)]"
+          ? "border-[color:var(--co-border)] bg-[color:var(--co-surface-active)] text-[color:var(--co-text)]"
           : "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] hover:opacity-90",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
         pressable,
@@ -158,8 +289,6 @@ export default function Captions() {
     </button>
   );
 
-
-  // Flow guard: Captions require a planned week (at least one tile)
   if (!hasWeekPlan) {
     return (
       <FlowEmptyState
@@ -167,22 +296,23 @@ export default function Captions() {
         desc="Create your week plan in Planner first, then generate captions per day."
         primaryLabel="Go to Planner"
         primaryTo="/prototype/planner"
-        secondaryLabel="Back to Sequence"
-        secondaryTo="/prototype/sequence"
+        secondaryLabel="Back to Smart Mix"
+        secondaryTo="/prototype/smart-mix"
       />
     );
   }
 
   return (
-    <div className="min-w-0 space-y-5 text-[color:var(--co-text)]">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="co-workspace-page co-scene co-captions-page co-captions-composer-page">
+      <header className="co-captions-header co-scene-header co-composer-scene-header flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-lg text-[color:var(--co-text)]">Captions</div>
-          <div className="mt-1 text-sm text-[color:var(--co-muted)]">AI-ready variants in your tone. Anchor: {anchor}</div>
+          <div className="text-base text-[color:var(--co-text)]">Captions</div>
+          <div className="mt-1 text-sm text-[color:var(--co-muted)]">
+            Voice layer for the selected publishing rhythm.
+          </div>
         </div>
 
-        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+        <div className="ml-auto flex w-full flex-wrap justify-end gap-2 sm:w-auto">
           <button
             type="button"
             onClick={() => navigate("/prototype/planner")}
@@ -203,239 +333,245 @@ export default function Captions() {
               pressable,
             ].join(" ")}
           >
-            Continue
+            Continue to Export
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2 py-2 sm:rounded-full">
-          {(["Minimal", "Neutral", "Emotional", "Sales"] as const).map(TonePill)}
-        </div>
+      <div className="co-caption-workspace co-caption-editorial-workspace">
+        <section className="co-caption-visual-stage co-caption-visual-card">
+          <div className="co-caption-visual-header flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm text-[color:var(--co-text)]">Selected post</div>
+              <div className="mt-1 text-xs text-[color:var(--co-muted)]">
+                Visual context for this caption.
+              </div>
+            </div>
+            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-muted)]">
+              {anchor}
+            </div>
+          </div>
 
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2 py-2 sm:rounded-full">
-          {(["Short", "Medium", "Long"] as const).map(LengthPill)}
-        </div>
-      </div>
+          <div className="co-caption-selected-frame mt-3">
+            {active?.asset ? (
+              <>
+                <img
+                  src={active.asset.thumbUrl}
+                  alt={active.asset.id}
+                  className="co-caption-selected-image"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]/82 px-3 py-1 text-xs text-[color:var(--co-text)]/86 backdrop-blur">
+                  {anchor}
+                </div>
+              </>
+            ) : null}
+          </div>
 
-      {/* Layout */}
-      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-12">
-        {/* Left: week context (vertical, large tiles) */}
-        <div className="min-w-0 lg:col-span-5">
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">Week context</div>
-              <div className="text-[11px] text-[color:var(--co-muted)]">Scroll by day</div>
+          <div className="co-caption-week-head">
+            <div className="text-sm text-[color:var(--co-text)]">Week rhythm</div>
+            <div className="text-xs text-[color:var(--co-muted)]">Tap a post to shape its voice.</div>
+          </div>
+
+          <div className="co-caption-week-strip co-scrollbar" aria-label="Week rhythm">
+            {plannedPosts.map((post) => {
+              const isActive = post.dayIndex === activeDay;
+              const postIndex = plannedPosts.findIndex((item) => item.dayIndex === post.dayIndex);
+              return (
+                <button
+                  key={post.dayIndex}
+                  type="button"
+                  onClick={() => selectPostDay(post.dayIndex)}
+                  className={[
+                    "co-caption-week-thumb",
+                    isActive ? "co-caption-week-thumb--active" : "",
+                    pressable,
+                  ].join(" ")}
+                >
+                  <img src={post.asset!.thumbUrl} alt="" loading="lazy" decoding="async" />
+                  <span>{slotLabel(post.dayIndex)}</span>
+                  <strong>#{postIndex + 1}</strong>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="co-caption-composer co-caption-editorial-panel">
+          <div className="co-caption-panel-header flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-base text-[color:var(--co-text)]">Caption Composer</div>
+              <div className="mt-1 text-sm text-[color:var(--co-muted)]">
+                Edit the copy that carries into the Export Pack.
+              </div>
+            </div>
+            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-[11px] text-[color:var(--co-muted)]">
+              Saved
+            </div>
+          </div>
+
+          <div className="co-caption-settings mt-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-1.5">
+                <span className="px-1 text-[11px] text-[color:var(--co-muted)]">Tone</span>
+                {(["Minimal", "Neutral", "Emotional", "Sales"] as const).map(TonePill)}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-1.5">
+                <span className="px-1 text-[11px] text-[color:var(--co-muted)]">Length</span>
+                {(["Short", "Medium", "Long"] as const).map(LengthPill)}
+              </div>
+            </div>
+          </div>
+
+          <div className="co-caption-draft-sheet">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                  Caption draft
+                </div>
+                <div className="mt-1 text-xs text-[color:var(--co-muted)]">
+                  Edit before export.
+                </div>
+              </div>
             </div>
 
-            <div className="mt-3 h-[min(72vh,820px)] space-y-3 overflow-y-auto pr-1 [scrollbar-gutter:stable] snap-y snap-mandatory">
-              {weekTiles.map((d) => {
-                const isActive = d.dayIndex === activeDay;
-                const hasTile = !!d.tileId && !!d.asset;
+            <textarea
+              value={editableCaption}
+              onChange={(e) => {
+                setEditableCaption(e.target.value);
+                persistComposer({ caption: e.target.value });
+              }}
+              className="co-caption-draft-textarea"
+              placeholder="Write or generate a caption for this post."
+              rows={5}
+            />
+          </div>
 
-                return (
+          <div className="co-caption-output-details">
+            <div className="co-caption-output-card">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                CTA line
+              </div>
+
+              <textarea
+                value={editableCta}
+                onChange={(e) => {
+                  setEditableCta(e.target.value);
+                  persistComposer({ cta: e.target.value });
+                }}
+                className="co-caption-output-text"
+                placeholder="Save this for your next content batch."
+                rows={2}
+              />
+            </div>
+
+            <div className="co-caption-output-card">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                Hashtags
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {hashtagItems.map((tag) => (
                   <button
-                    key={d.dayIndex}
+                    key={tag}
                     type="button"
-                    onClick={() => hasTile && setActiveDay(d.dayIndex)}
-                    className={[
-                      "w-full text-left snap-start",
-                      !hasTile ? "cursor-default" : "cursor-pointer",
-                      pressable,
-                    ].join(" ")}
+                    onClick={() => {
+                      const nextTags = hashtagItems.filter((item) => item !== tag).join(" ");
+                      setEditableTags(nextTags);
+                      persistComposer({ tags: nextTags });
+                    }}
+                    className="co-caption-tag"
+                    title="Remove tag"
                   >
-                    <div
-                      className={[
-                        "relative overflow-hidden rounded-3xl border bg-[color:var(--co-surface)]",
-                        "border-[color:var(--co-border)]",
-                        isActive ? "ring-2 ring-[color:var(--co-text)]/10" : "",
-                      ].join(" ")}
-                    >
-                      <div className="aspect-[4/5]">
-                        {hasTile ? (
-                          <img
-                            src={d.asset!.thumbUrl}
-                            alt={d.asset!.id}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-[color:var(--co-muted)]">
-                            Drop a tile in Planner
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2">
-                        <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]/85 px-2.5 py-1 text-[11px] text-[color:var(--co-text)]/80 shadow-sm backdrop-blur">
-                          {DAYS[d.dayIndex]}
-                        </div>
-
-                        {/* UI-only: minimal numbering instead of p-xx */}
-                        {d.tileId ? (
-                          <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]/85 px-2.5 py-1 text-[11px] text-[color:var(--co-muted)] shadow-sm backdrop-blur">
-                            #{d.dayIndex + 1}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
+                    {tag}
                   </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-3 text-[11px] text-[color:var(--co-muted)]">
-              Tip: click a day to switch context. Captions regenerate per tile.
-            </div>
-          </div>
-        </div>
-
-        {/* Right: caption + tags + AI request */}
-        <div className="min-w-0 space-y-5 lg:col-span-7">
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">Generation</div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-[11px] text-[color:var(--co-muted)]">
-                  {captions.tone} · {captions.length}
-                </div>
-                <button
-                  type="button"
-                  onClick={regenerate}
-                  className={[
-                    "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                >
-                  Regenerate
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] text-[color:var(--co-muted)]">Primary</div>
-                  <div className="mt-1 text-sm text-[color:var(--co-text)]/85">{captions.variants[0] ?? "—"}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={copyCaption}
-                  className={[
-                    "shrink-0 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                >
-                  {copiedKey === "caption" ? "Copied" : "Copy"}
-                </button>
-              </div>
-
-              {captions.variants[1] ? (
-                <div className="mt-3 rounded-xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[11px] text-[color:var(--co-muted)]">Alt</div>
-                      <div className="mt-1 text-sm text-[color:var(--co-text)]/75">{captions.variants[1]}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={copyAlt}
-                      className={[
-                        "shrink-0 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                        pressable,
-                      ].join(" ")}
-                    >
-                      {copiedKey === "alt" ? "Copied" : "Copy"}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-2">
-                  {captions.hashtags.map((h) => (
-                    <span
-                      key={h}
-                      className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-2 py-1 text-xs text-[color:var(--co-muted)]"
-                    >
-                      {h}
-                    </span>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={copyHashtags}
-                  className={[
-                    "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                >
-                  {copiedKey === "hashtags" ? "Copied" : "Copy tags"}
-                </button>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-[color:var(--co-muted)]">AI request</div>
+          <div className="co-caption-direction-row">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                Refine direction
+              </div>
+              <div className="mt-1 text-xs leading-5 text-[color:var(--co-muted)]">
+                Adjust the hook, message, or CTA before regenerating.
+              </div>
+
+              <textarea
+                value={ai.prompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder={'Add a clearer hook, message, or CTA direction.\nExample: "Make it calmer and more direct."'}
+                className="co-caption-direction-input"
+                rows={2}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={onGenerateWithFallback}
+              disabled={isGenerating}
+              className={[
+                "co-caption-generate-button",
+                isGenerating ? "cursor-wait opacity-75" : "",
+                pressable,
+              ].join(" ")}
+            >
+              {isGenerating ? "Generating..." : "Regenerate caption"}
+            </button>
+
+            {generationError ? (
+              <div className="co-caption-direction-error">
+                {generationError}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="co-caption-composer-footer">
+            <p className="min-w-0 text-xs leading-5 text-[color:var(--co-muted)]">
+              Carries into Export Pack.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={onGenerateDraft}
-                disabled={drafting}
+                onClick={copyCaption}
                 className={[
-                  "rounded-full border px-3 py-1.5 text-xs transition",
-                  drafting
-                    ? "cursor-wait border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] opacity-70"
-                    : "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-text)] hover:opacity-90",
+                  "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2.5 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
                   pressable,
                 ].join(" ")}
               >
-                {drafting ? "Generating…" : "Generate"}
+                {copiedKey === "caption" ? "Copied" : "Copy caption"}
+              </button>
+              <button
+                type="button"
+                onClick={copyHashtags}
+                className={[
+                  "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2.5 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
+              >
+                {copiedKey === "hashtags" ? "Copied" : "Copy tags"}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/prototype/export")}
+                className={[
+                  "flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2.5 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
+              >
+                Continue to Export
               </button>
             </div>
-
-            <textarea
-              value={ai.prompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder='Describe what you want to say (hook, message, CTA). Example: "Write a calm caption about a clear decision."'
-              className="mt-3 h-28 w-full resize-none rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-3 text-sm text-[color:var(--co-text)]/85 outline-none placeholder:text-[color:var(--co-muted)]/60 focus:border-[color:var(--co-border)]"
-            />
-
-            <div className="mt-3 rounded-2xl border border-[color:var(--co-border)] bg-[color:var(--co-surface)] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-[11px] text-[color:var(--co-muted)]">Draft</div>
-                  <div className="mt-1 whitespace-pre-wrap text-sm text-[color:var(--co-text)]/80">
-                    {ai.draft ||
-                      "Generate a draft from your prompt. (Placeholder — later we'll replace this with OpenAI responses.)"}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={copyDraft}
-                  disabled={!ai.draft}
-                  className={[
-                    "shrink-0 rounded-full border px-3 py-1.5 text-xs",
-                    ai.draft
-                      ? "border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] text-[color:var(--co-text)] hover:opacity-90"
-                      : "cursor-not-allowed border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] text-[color:var(--co-muted)] opacity-60",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                    pressable,
-                  ].join(" ")}
-                >
-                  {copiedKey === "draft" ? "Copied" : "Copy"}
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -44,6 +44,16 @@ export type CaptionsState = {
   length: Length;
   variants: string[];
   hashtags: string[];
+  cta?: string;
+  source?: "local" | "openai" | "fallback";
+};
+
+export type GeneratedCaptionResult = {
+  id: string;
+  caption: string;
+  hashtags: string[];
+  cta: string;
+  alt: string;
 };
 
 export type Readout = {
@@ -104,6 +114,7 @@ type PrototypeState = {
   toggleMixSlotLock: (mixId: string, slotIndex: number) => void;
   replaceMixTile: (mixId: string, slotIndex: number) => boolean;
   replaceWeakMixTile: (mixId: string) => boolean;
+  reorderMixTiles: (mixId: string, fromIndex: number, toIndex: number) => boolean;
 
   // Sequence / Planner
   buildSequenceFromBest: () => void;
@@ -121,6 +132,7 @@ type PrototypeState = {
 
   // Captions
   generateCaptions: (tone: Tone, length: Length, anchorTileId?: string) => void;
+  setGeneratedCaption: (result: GeneratedCaptionResult, source?: CaptionsState["source"]) => void;
 
   // AI request (placeholder)
   setAiPrompt: (prompt: string) => void;
@@ -861,6 +873,13 @@ const captionBankByTone: Record<Tone, string[]> = {
   ],
 };
 
+const ctaByTone: Record<Tone, string> = {
+  Minimal: "Save this for your next content batch.",
+  Neutral: "Use this as a reference for the next weekly plan.",
+  Emotional: "Keep this close when the week needs direction.",
+  Sales: "Turn this into your next repeatable content system.",
+};
+
 // ---- Seeded RNG (stable, deterministic per "regenerate run") ----
 function fnv1a32(str: string): number {
   let h = 2166136261;
@@ -916,11 +935,13 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
         | "toggleMixSlotLock"
         | "replaceMixTile"
         | "replaceWeakMixTile"
+        | "reorderMixTiles"
         | "buildSequenceFromBest"
         | "sendSequenceToPlanner"
         | "setPlannerSlot"
         | "clearPlannerSlot"
         | "generateCaptions"
+        | "setGeneratedCaption"
         | "setAiPrompt"
         | "generateDraftFromPrompt"
         | "exportTextPack"
@@ -940,7 +961,7 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
         lockedAssetIds: [],
         sequence: Array.from({ length: 7 }, (_, dayIndex) => ({ dayIndex })),
         planner: makePlannerSkeleton(),
-        captions: { tone: "Minimal", length: "Short", variants: [], hashtags: [] },
+        captions: { tone: "Minimal", length: "Short", variants: [], hashtags: [], source: "local" },
         ai: { prompt: "", draft: "" },
         readout: { selected: 0, mixes: 0, conflictsAvoided: 0, minutesSaved: 0 },
         analysisPendingIds: [],
@@ -1577,6 +1598,51 @@ function buildMixFromPool(
           return get().replaceMixTile(mixId, weakSlot);
         },
 
+        reorderMixTiles: (mixId, fromIndex, toIndex) => {
+          let reordered = false;
+
+          set((state) => {
+            if (
+              fromIndex === toIndex ||
+              fromIndex < 0 ||
+              fromIndex > 8 ||
+              toIndex < 0 ||
+              toIndex > 8
+            ) {
+              return {};
+            }
+
+            const lockedSlots = normalizeLockedSlots(state.lockedSlots);
+            if (lockedSlots[fromIndex] || lockedSlots[toIndex]) return {};
+
+            const mix = state.mixes.find((candidate) => candidate.id === mixId);
+            if (!mix) return {};
+
+            const nextTileIds = mix.tileIds.slice(0, 9);
+            if (!nextTileIds[fromIndex] || !nextTileIds[toIndex]) return {};
+
+            [nextTileIds[fromIndex], nextTileIds[toIndex]] = [nextTileIds[toIndex], nextTileIds[fromIndex]];
+
+            const getAsset = (id: string) => state.assets.find((asset) => asset.id === id);
+            const mixes = state.mixes.map((candidate) => {
+              if (candidate.id !== mixId) return scoreMixV2(candidate, getAsset, lockedSlots);
+              return scoreMixV2({ ...candidate, tileIds: nextTileIds }, getAsset, lockedSlots);
+            });
+            const selectedMix = mixes.find((candidate) => candidate.id === mixId);
+
+            reordered = true;
+
+            return {
+              mixes,
+              bestMixId: mixId,
+              ...mixSelectedMeta(selectedMix, lockedSlots),
+              readout: computeReadoutLite({ selectedAssetIds: state.selectedAssetIds, mixes }),
+            };
+          });
+
+          return reordered;
+        },
+
         buildSequenceFromBest: () =>
           set((state) => {
             const best = state.mixes.find((m) => m.id === state.bestMixId) ?? state.mixes[0];
@@ -1684,7 +1750,28 @@ function buildMixFromPool(
               ["#grid", "#workflow", "#planning", "#sequence", "#creatorops"],
             ]);
 
-            return { captions: { tone, length, variants, hashtags } };
+            return { captions: { tone, length, variants, hashtags, cta: ctaByTone[tone], source: "local" } };
+          }),
+
+        setGeneratedCaption: (result, source = "openai") =>
+          set((state) => {
+            const caption = result.caption.trim();
+            const alt = result.alt.trim();
+            const variants = [caption, alt].filter(Boolean).slice(0, 2);
+            const hashtags = result.hashtags
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+              .slice(0, 10);
+
+            return {
+              captions: {
+                ...state.captions,
+                variants,
+                hashtags,
+                cta: result.cta.trim(),
+                source,
+              },
+            };
           }),
 
         setAiPrompt: (prompt) =>
@@ -1736,6 +1823,12 @@ function buildMixFromPool(
           lines.push("HASHTAGS");
           lines.push(s.captions.hashtags.join(" "));
           lines.push("");
+
+          if (s.captions.cta?.trim()) {
+            lines.push("CTA");
+            lines.push(s.captions.cta);
+            lines.push("");
+          }
 
           // Planner
           lines.push("PLANNER (WEEK)");
