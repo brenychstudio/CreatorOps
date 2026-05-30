@@ -11,6 +11,7 @@ import Planner from "../pages/prototype/Planner";
 import Captions from "../pages/prototype/Captions";
 import ExportPage from "../pages/prototype/Export";
 import BioBuilder from "../pages/prototype/BioBuilder";
+import MediaConverter from "../pages/prototype/MediaConverter";
 import AppCrashBoundary from "../components/system/AppCrashBoundary";
 
 export default function AppRoutes() {
@@ -30,6 +31,7 @@ export default function AppRoutes() {
           <Route path="captions" element={<Captions />} />
           <Route path="export" element={<ExportPage />} />
           <Route path="bio-builder" element={<BioBuilder />} />
+          <Route path="media-converter" element={<MediaConverter />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

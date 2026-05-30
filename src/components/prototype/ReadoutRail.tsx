@@ -48,6 +48,11 @@ const routeSignals: Record<string, Signal> = {
     label: "Profile handoff studio",
     copy: "Profile copy and preview stay aligned with the Week Pack.",
   },
+  "/prototype/media-converter": {
+    layer: "MEDIA TOOLS",
+    label: "Media Converter",
+    copy: "Prepare images locally before they enter a Week Pack.",
+  },
 };
 
 type ReadoutRailProps = {
@@ -179,6 +184,7 @@ export default function ReadoutRail({ mode = "rail" }: ReadoutRailProps) {
 
   if (mode === "compact") {
     const nextTheme = theme === "dark" ? "light" : "dark";
+    const isMediaConverterRoute = location.pathname === "/prototype/media-converter";
 
     return (
       <div className="co-signal-strip min-w-0">
@@ -193,6 +199,19 @@ export default function ReadoutRail({ mode = "rail" }: ReadoutRailProps) {
           <span>&middot;</span>
           <span className="tabular-nums">{packState}</span>
         </div>
+
+        <button
+          type="button"
+          onClick={() => navigate("/prototype/media-converter")}
+          className={[
+            "co-signal-pill hover:bg-[color:var(--co-surface-active)] pressable",
+            location.pathname === "/prototype/media-converter" ? "co-step-active text-[color:var(--co-text)]" : "",
+          ].join(" ")}
+        >
+          <strong>{isMediaConverterRoute ? "Local processing" : "Media Tools"}</strong>
+          <span>&middot;</span>
+          <span>{isMediaConverterRoute ? "planned" : "Media Converter"}</span>
+        </button>
 
         <button
           type="button"
