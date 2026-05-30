@@ -1,9 +1,11 @@
 import type { DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { convertImageFile } from "../../modules/media-converter/core/browserConvert";
+import type { MediaConverterOutputFormat } from "../../modules/media-converter/core/types";
 
 type ConverterPresetId = "smaller" | "website" | "social" | "quality" | "transparent";
-type TargetFormat = "JPG" | "PNG" | "WebP";
+type TargetFormat = MediaConverterOutputFormat;
 type FormatLabel = TargetFormat | "Unknown";
 
 type ConverterQueueStatus =
@@ -14,6 +16,8 @@ type ConverterQueueStatus =
   | "too-large"
   | "metadata-loading"
   | "metadata-failed";
+
+type ConverterConversionStatus = "idle" | "queued" | "converting" | "converted" | "failed";
 
 type ConverterQueueItem = {
   id: string;
@@ -29,6 +33,14 @@ type ConverterQueueItem = {
   targetFormat: TargetFormat;
   status: ConverterQueueStatus;
   message: string;
+  conversionStatus: ConverterConversionStatus;
+  convertedObjectUrl?: string;
+  convertedBlob?: Blob;
+  convertedName?: string;
+  convertedSizeLabel?: string;
+  convertedFormatLabel?: TargetFormat;
+  conversionMessage?: string;
+  usedFallback?: boolean;
 };
 
 const MAX_FILES = 20;
@@ -103,6 +115,12 @@ function getFormatLabel(file: File): FormatLabel {
   return "Unknown";
 }
 
+function formatLabelFromMimeType(mimeType: string): TargetFormat {
+  if (mimeType === "image/jpeg") return "JPG";
+  if (mimeType === "image/webp") return "WebP";
+  return "PNG";
+}
+
 function isSupportedFile(file: File) {
   const extension = file.name.toLowerCase().split(".").pop();
   const supportedExtension = extension === "jpg" || extension === "jpeg" || extension === "png" || extension === "webp";
@@ -137,9 +155,37 @@ function statusLabel(status: ConverterQueueStatus) {
   return labels[status];
 }
 
+function conversionStatusLabel(item: ConverterQueueItem) {
+  if (item.conversionStatus === "converted") {
+    return item.usedFallback ? `Converted as ${item.convertedFormatLabel ?? "PNG"} fallback` : "Converted";
+  }
+
+  if (item.conversionStatus === "converting") return "Converting";
+  if (item.conversionStatus === "queued") return "Queued";
+  if (item.conversionStatus === "failed") return "Conversion failed";
+  return item.message || statusLabel(item.status);
+}
+
 function createQueueId(file: File) {
   const randomPart = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
   return `${file.name}-${file.lastModified}-${randomPart}`;
+}
+
+function buildConvertedFilename(name: string, extension: string) {
+  const base = name.replace(/\.[^.]+$/, "") || "image";
+  return `${base}-converted.${extension}`;
+}
+
+function conversionErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "unknown";
+  if (message === "decode-failed") return "This image could not be decoded in the browser.";
+  if (message === "canvas-context-failed") return "The browser could not prepare the conversion canvas.";
+  if (message === "encode-failed") return "The browser could not export this image. Try PNG.";
+  return "Conversion failed. Try another preset or file.";
+}
+
+function canConvertItem(item: ConverterQueueItem) {
+  return item.status !== "unsupported" && item.status !== "too-large" && item.status !== "metadata-failed";
 }
 
 export default function MediaConverter() {
@@ -149,8 +195,14 @@ export default function MediaConverter() {
   const [selectedPresetId, setSelectedPresetId] = useState<ConverterPresetId>("website");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
 
   const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? presets[1];
+  const convertableCount = queue.filter(canConvertItem).length;
+  const convertedCount = queue.filter((item) => item.conversionStatus === "converted").length;
+  const convertingCount = queue.filter(
+    (item) => item.conversionStatus === "queued" || item.conversionStatus === "converting",
+  ).length;
 
   useEffect(() => {
     queueRef.current = queue;
@@ -158,7 +210,10 @@ export default function MediaConverter() {
 
   useEffect(() => {
     return () => {
-      queueRef.current.forEach((item) => URL.revokeObjectURL(item.objectUrl));
+      queueRef.current.forEach((item) => {
+        URL.revokeObjectURL(item.objectUrl);
+        if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
+      });
     };
   }, []);
 
@@ -169,14 +224,29 @@ export default function MediaConverter() {
       ["Quality", String(selectedPreset.quality)],
       ["Resize", "Original size"],
       ["Queue", queue.length ? `${queue.length} image${queue.length === 1 ? "" : "s"} ready` : "Waiting for images"],
+      ["Converted", `${convertedCount} / ${convertableCount || 0}`],
+      ...(isConverting ? ([["Converting", `${convertingCount} / ${convertableCount || 0}`]] as const) : []),
       ["Export", "ZIP planned"],
     ],
-    [queue.length, selectedPreset.quality, selectedPreset.targetFormat, selectedPreset.title],
+    [
+      convertableCount,
+      convertedCount,
+      convertingCount,
+      isConverting,
+      queue.length,
+      selectedPreset.quality,
+      selectedPreset.targetFormat,
+      selectedPreset.title,
+    ],
   );
 
   const updatePreset = (presetId: ConverterPresetId) => {
     const preset = presets.find((item) => item.id === presetId);
     if (!preset) return;
+
+    queueRef.current.forEach((item) => {
+      if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
+    });
 
     setSelectedPresetId(presetId);
     setQueue((items) =>
@@ -188,6 +258,14 @@ export default function MediaConverter() {
           targetFormat: preset.targetFormat,
           status: item.status === "metadata-loading" || item.status === "metadata-failed" ? item.status : state.status,
           message: item.status === "metadata-loading" || item.status === "metadata-failed" ? item.message : state.message,
+          conversionStatus: "idle",
+          convertedObjectUrl: undefined,
+          convertedBlob: undefined,
+          convertedName: undefined,
+          convertedSizeLabel: undefined,
+          convertedFormatLabel: undefined,
+          conversionMessage: undefined,
+          usedFallback: undefined,
         };
       }),
     );
@@ -218,6 +296,8 @@ export default function MediaConverter() {
                 ...current,
                 status: "metadata-failed",
                 message: "Metadata failed",
+                conversionStatus: "failed",
+                conversionMessage: "This image could not be decoded in the browser.",
               }
             : current,
         ),
@@ -269,6 +349,7 @@ export default function MediaConverter() {
         targetFormat: selectedPreset.targetFormat,
         status: "metadata-loading",
         message: "Metadata loading",
+        conversionStatus: "idle",
       };
 
       accepted.push(item);
@@ -285,17 +366,116 @@ export default function MediaConverter() {
   const removeItem = (id: string) => {
     setQueue((items) => {
       const item = items.find((current) => current.id === id);
-      if (item) URL.revokeObjectURL(item.objectUrl);
+      if (item) {
+        URL.revokeObjectURL(item.objectUrl);
+        if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
+      }
       return items.filter((current) => current.id !== id);
     });
   };
 
   const clearQueue = () => {
     setQueue((items) => {
-      items.forEach((item) => URL.revokeObjectURL(item.objectUrl));
+      items.forEach((item) => {
+        URL.revokeObjectURL(item.objectUrl);
+        if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
+      });
       return [];
     });
     setWarnings([]);
+    setIsConverting(false);
+  };
+
+  const handleConvertQueue = async () => {
+    const itemsToConvert = queueRef.current.filter(canConvertItem);
+    if (!itemsToConvert.length || isConverting) return;
+
+    setIsConverting(true);
+    setQueue((items) =>
+      items.map((item) =>
+        canConvertItem(item)
+          ? {
+              ...item,
+              conversionStatus: "queued",
+              conversionMessage: "Queued",
+            }
+          : item,
+      ),
+    );
+
+    for (const queuedItem of itemsToConvert) {
+      const currentItem = queueRef.current.find((item) => item.id === queuedItem.id);
+      if (!currentItem || !canConvertItem(currentItem)) continue;
+
+      setQueue((items) =>
+        items.map((item) =>
+          item.id === currentItem.id
+            ? {
+                ...item,
+                conversionStatus: "converting",
+                conversionMessage: "Converting",
+              }
+            : item,
+        ),
+      );
+
+      try {
+        const preset = presets.find((item) => item.id === currentItem.presetId) ?? selectedPreset;
+        const result = await convertImageFile(currentItem.file, {
+          outputFormat: currentItem.targetFormat,
+          quality: preset.quality,
+          backgroundColor: "#ffffff",
+        });
+        const convertedObjectUrl = URL.createObjectURL(result.blob);
+        const convertedName = buildConvertedFilename(currentItem.name, result.extension);
+        const convertedFormatLabel = formatLabelFromMimeType(result.mimeType);
+
+        setQueue((items) =>
+          items.map((item) => {
+            if (item.id !== currentItem.id) return item;
+            if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
+
+            return {
+              ...item,
+              conversionStatus: "converted",
+              convertedObjectUrl,
+              convertedBlob: result.blob,
+              convertedName,
+              convertedSizeLabel: formatFileSize(result.blob.size),
+              convertedFormatLabel,
+              conversionMessage: result.usedFallback
+                ? `Converted as ${convertedFormatLabel} fallback`
+                : `Converted · ${formatFileSize(result.blob.size)}`,
+              usedFallback: result.usedFallback,
+            };
+          }),
+        );
+      } catch (error) {
+        setQueue((items) =>
+          items.map((item) =>
+            item.id === currentItem.id
+              ? {
+                  ...item,
+                  conversionStatus: "failed",
+                  conversionMessage: conversionErrorMessage(error),
+                }
+              : item,
+          ),
+        );
+      }
+    }
+
+    setIsConverting(false);
+  };
+
+  const onDownload = (item: ConverterQueueItem) => {
+    if (!item.convertedObjectUrl || !item.convertedName) return;
+    const anchor = document.createElement("a");
+    anchor.href = item.convertedObjectUrl;
+    anchor.download = item.convertedName;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
   };
 
   const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
@@ -387,7 +567,7 @@ export default function MediaConverter() {
                     or choose JPG, PNG, and WebP files from your computer.
                   </p>
                   <p className="mt-2 max-w-md text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
-                    Files stay on your device. Conversion engine comes next.
+                    Files stay on your device. Canvas conversion runs locally in this browser.
                   </p>
                 </div>
 
@@ -400,13 +580,28 @@ export default function MediaConverter() {
                     Choose images
                   </button>
                   {queue.length ? (
-                    <button
-                      type="button"
-                      onClick={clearQueue}
-                      className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] pressable"
-                    >
-                      Clear queue
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleConvertQueue}
+                        disabled={!convertableCount || isConverting}
+                        className={[
+                          "rounded-full px-4 py-2 text-sm font-medium pressable",
+                          !convertableCount || isConverting
+                            ? "cursor-not-allowed border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)]"
+                            : "bg-[color:var(--co-text)] text-[color:var(--co-bg)]",
+                        ].join(" ")}
+                      >
+                        {isConverting ? "Converting..." : "Convert queue"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearQueue}
+                        className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] pressable"
+                      >
+                        Clear queue
+                      </button>
+                    </>
                   ) : null}
                   <span className="text-xs leading-5 text-[color:var(--co-muted)]">
                     {queue.length}/{MAX_FILES} local files
@@ -418,14 +613,14 @@ export default function MediaConverter() {
             <Panel className="!h-auto !p-3">
               <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
                 <div>
-                  <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Local queue</div>
+                  <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Conversion queue</div>
                   <h2 className="mt-1 text-lg font-semibold tracking-[-0.035em] text-[color:var(--co-text)]">
-                    {queue.length ? "Conversion queue" : "No files added yet."}
+                    {queue.length ? "Local conversion queue" : "No files added yet."}
                   </h2>
                 </div>
                 <span className="text-xs text-[color:var(--co-muted)]">
                   {queue.length
-                    ? "These files are ready for the browser conversion engine."
+                    ? "Files are converted locally in your browser."
                     : "Add JPG, PNG, or WebP images to prepare a local conversion queue."}
                 </span>
               </div>
@@ -460,14 +655,33 @@ export default function MediaConverter() {
                           <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
                             {item.formatLabel} · {dimensions} · {item.sizeLabel}
                           </div>
-                        <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
-                          {preset.title} · {item.formatLabel} -&gt; {item.targetFormat}
+                          <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+                            {preset.title} · {item.formatLabel} -&gt; {item.targetFormat}
+                          </div>
+                          {item.conversionStatus === "converted" && item.convertedSizeLabel ? (
+                            <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+                              {item.conversionMessage} · {item.convertedSizeLabel}
+                            </div>
+                          ) : null}
+                          {item.conversionStatus === "failed" && item.conversionMessage ? (
+                            <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+                              {item.conversionMessage}
+                            </div>
+                          ) : null}
                         </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <span className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-text)]">
-                            {item.message || statusLabel(item.status)}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                          <span className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-text)]">
+                            {conversionStatusLabel(item)}
+                          </span>
+                          {item.conversionStatus === "converted" ? (
+                            <button
+                              type="button"
+                              onClick={() => onDownload(item)}
+                              className="rounded-full bg-[color:var(--co-text)] px-3 py-1 text-[11px] font-medium text-[color:var(--co-bg)] pressable"
+                            >
+                              Download
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => removeItem(item.id)}
@@ -547,8 +761,7 @@ export default function MediaConverter() {
           <div className="co-shell-strip rounded-[1.1rem] px-4 py-3">
             <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Local-first by design</div>
             <p className="mt-1 max-w-3xl text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
-              Files are added locally in your browser. The planned v1 conversion engine will process them without
-              uploading.
+              Files are added and converted locally in your browser. Nothing is uploaded for this conversion step.
             </p>
           </div>
 
