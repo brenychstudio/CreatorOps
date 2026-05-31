@@ -9,6 +9,8 @@ type DragPayload = {
   from?: { dayIndex: number; slotIndex: number };
 };
 
+type PhonePreviewMode = "instagram" | "tiktok";
+
 function setDragData(e: React.DragEvent, payload: DragPayload) {
   e.dataTransfer.setData("application/json", JSON.stringify(payload));
   e.dataTransfer.effectAllowed = "move";
@@ -53,6 +55,7 @@ export default function Planner() {
 
   const [dragging, setDragging] = useState(false);
   const [overKey, setOverKey] = useState<string | null>(null);
+  const [phonePreviewMode, setPhonePreviewMode] = useState<PhonePreviewMode>("instagram");
 
   // Helpers
   const getSlotId = (dayIndex: number) =>
@@ -123,6 +126,7 @@ export default function Planner() {
   const heroPreview = plannerPreviewSlots.find((slot) => Boolean(slot.tileId)) ?? plannerPreviewSlots[0];
   const previewAvatarUrl = heroPreview?.tileId ? getAssetById(heroPreview.tileId)?.thumbUrl : undefined;
   const highlightSlots = plannerPreviewSlots.filter((slot) => Boolean(slot.tileId)).slice(0, 4);
+  const verticalPreviewSlots = plannerPreviewSlots.filter((slot) => Boolean(slot.tileId));
 
   useEffect(() => {
     if (mixes.length && bestMixId && !hasAnyPlan) {
@@ -329,6 +333,32 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
     );
   };
 
+  const TikTokProfileTile = (props: { tileId?: string; index: number }) => {
+    const asset = props.tileId ? getAssetById(props.tileId) : undefined;
+    const playCounts = ["8.2K", "12K", "6.4K", "9.8K", "7.1K", "10K", "5.6K", "11K", "4.9K"];
+
+    return (
+      <div className="co-planner-tiktok-profile-tile">
+        {asset ? (
+          <img
+            className="co-planner-tiktok-profile-tile-media"
+            src={asset.thumbUrl}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div className="co-planner-tiktok-profile-tile-empty" />
+        )}
+        <span className="co-planner-tiktok-profile-plays">
+          <span aria-hidden="true" />
+          {playCounts[props.index % playCounts.length]}
+        </span>
+      </div>
+    );
+  };
+
   const onPhonePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
@@ -491,6 +521,22 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
             <div>
               <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Feed Preview</div>
               <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Week Pack rhythm</div>
+              <div className="co-planner-preview-mode-toggle" role="group" aria-label="Phone preview mode">
+                <button
+                  type="button"
+                  className={phonePreviewMode === "instagram" ? "is-active" : ""}
+                  onClick={() => setPhonePreviewMode("instagram")}
+                >
+                  Instagram
+                </button>
+                <button
+                  type="button"
+                  className={phonePreviewMode === "tiktok" ? "is-active" : ""}
+                  onClick={() => setPhonePreviewMode("tiktok")}
+                >
+                  TikTok
+                </button>
+              </div>
             </div>
             <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
               Synced
@@ -500,93 +546,180 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
           <div className="co-iphone-shell co-planner-phone-shell" aria-label="Planner mobile preview">
             <div className="co-iphone-island" aria-hidden="true" />
             <div className="co-iphone-screen">
-              <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
-                <div className="min-w-0 truncate text-[13px] font-medium text-white/92">creatorops</div>
-                <div className="flex items-center gap-3 text-white/70">
-                  <span className="text-xs">+</span>
-                  <span className="text-xs">|||</span>
-                </div>
-              </div>
-
-              <div
-                className="co-planner-phone-body co-scrollbar"
-                onPointerDown={onPhonePointerDown}
-                onPointerMove={onPhonePointerMove}
-                onPointerUp={endPhoneDrag}
-                onPointerCancel={endPhoneDrag}
-                onPointerLeave={endPhoneDrag}
-              >
-                <div className="co-planner-phone-profile">
-                  <div className="co-planner-phone-account">
-                    <div className="co-planner-phone-avatar">
-                      {previewAvatarUrl ? (
-                        <img src={previewAvatarUrl} alt="" draggable={false} loading="lazy" decoding="async" />
-                      ) : null}
-                    </div>
-                    <div className="co-planner-phone-stats" aria-label="Feed stats">
-                      <div>
-                        <strong>9</strong>
-                        <span>posts</span>
-                      </div>
-                      <div>
-                        <strong>12.4K</strong>
-                        <span>followers</span>
-                      </div>
-                      <div>
-                        <strong>321</strong>
-                        <span>following</span>
-                      </div>
+              {phonePreviewMode === "instagram" ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
+                    <div className="min-w-0 truncate text-[13px] font-medium text-white/92">creatorops</div>
+                    <div className="flex items-center gap-3 text-white/70">
+                      <span className="text-xs">+</span>
+                      <span className="text-xs">|||</span>
                     </div>
                   </div>
 
-                  <div className="co-planner-phone-actions">
-                    <button type="button">Follow</button>
-                    <button type="button">Message</button>
-                  </div>
-
-                  <div className="co-planner-phone-bio">
-                    <strong>CreatorOps</strong>
-                    <span>Calm weekly content systems.</span>
-                    <span>Week Pack ready for captions.</span>
-                    <a href="#planner-preview" onClick={(event) => event.preventDefault()}>
-                      creatorops.studio/week-pack
-                    </a>
-                  </div>
-
-                  <div className="co-planner-phone-highlights" aria-label="Profile highlights">
-                    {highlightSlots.map((slot, index) => {
-                      const asset = slot.tileId ? getAssetById(slot.tileId) : undefined;
-                      const labels = ["Rhythm", "Offer", "Mood", "CTA"];
-
-                      return (
-                        <div key={slot.key} className="co-planner-phone-highlight">
-                          <div className="co-planner-phone-highlight-thumb">
-                            {asset ? (
-                              <img src={asset.thumbUrl} alt="" draggable={false} loading="lazy" decoding="async" />
-                            ) : null}
-                          </div>
-                          <span>{labels[index] ?? slot.label}</span>
+                  <div
+                    className="co-planner-phone-body"
+                    onPointerDown={onPhonePointerDown}
+                    onPointerMove={onPhonePointerMove}
+                    onPointerUp={endPhoneDrag}
+                    onPointerCancel={endPhoneDrag}
+                    onPointerLeave={endPhoneDrag}
+                  >
+                    <div className="co-planner-phone-profile">
+                      <div className="co-planner-phone-account">
+                        <div className="co-planner-phone-avatar">
+                          {previewAvatarUrl ? (
+                            <img src={previewAvatarUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                          ) : null}
                         </div>
-                      );
-                    })}
+                        <div className="co-planner-phone-stats" aria-label="Feed stats">
+                          <div>
+                            <strong>9</strong>
+                            <span>posts</span>
+                          </div>
+                          <div>
+                            <strong>12.4K</strong>
+                            <span>followers</span>
+                          </div>
+                          <div>
+                            <strong>321</strong>
+                            <span>following</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="co-planner-phone-actions">
+                        <button type="button">Follow</button>
+                        <button type="button">Message</button>
+                      </div>
+
+                      <div className="co-planner-phone-bio">
+                        <strong>CreatorOps</strong>
+                        <span>Calm weekly content systems.</span>
+                        <span>Week Pack ready for captions.</span>
+                        <a href="#planner-preview" onClick={(event) => event.preventDefault()}>
+                          creatorops.studio/week-pack
+                        </a>
+                      </div>
+
+                      <div className="co-planner-phone-highlights" aria-label="Profile highlights">
+                        {highlightSlots.map((slot, index) => {
+                          const asset = slot.tileId ? getAssetById(slot.tileId) : undefined;
+                          const labels = ["Rhythm", "Offer", "Mood", "CTA"];
+
+                          return (
+                            <div key={slot.key} className="co-planner-phone-highlight">
+                              <div className="co-planner-phone-highlight-thumb">
+                                {asset ? (
+                                  <img src={asset.thumbUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                                ) : null}
+                              </div>
+                              <span>{labels[index] ?? slot.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="co-planner-phone-tabs">
+                      <span>Posts</span>
+                      <span>Reels</span>
+                      <span>Tagged</span>
+                    </div>
+
+                    <div className="co-planner-phone-grid">
+                      {plannerPreviewSlots.map((slot) => (
+                        <PhoneGridTile
+                          key={slot.key}
+                          tileId={slot.tileId}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="co-planner-tiktok-body">
+                  <div
+                    className="co-planner-tiktok-scroll"
+                    onPointerDown={onPhonePointerDown}
+                    onPointerMove={onPhonePointerMove}
+                    onPointerUp={endPhoneDrag}
+                    onPointerCancel={endPhoneDrag}
+                    onPointerLeave={endPhoneDrag}
+                  >
+                    <div className="co-planner-tiktok-appbar" aria-label="TikTok profile controls">
+                      <span className="co-planner-tiktok-icon co-planner-tiktok-icon--person" aria-hidden="true" />
+                      <div className="co-planner-tiktok-appbar-actions">
+                        <span className="co-planner-tiktok-icon co-planner-tiktok-icon--steps" aria-hidden="true" />
+                        <span className="co-planner-tiktok-icon co-planner-tiktok-icon--share" aria-hidden="true" />
+                        <span className="co-planner-tiktok-icon co-planner-tiktok-icon--menu" aria-hidden="true" />
+                      </div>
+                    </div>
+
+                    <div className="co-planner-tiktok-profile">
+                      <div className="co-planner-tiktok-profile-avatar">
+                        {previewAvatarUrl ? (
+                          <img src={previewAvatarUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                        ) : null}
+                        <span aria-hidden="true">+</span>
+                      </div>
+                      <div className="co-planner-tiktok-name-row">
+                        <strong>CreatorOps</strong>
+                        <span>1</span>
+                        <button type="button" aria-label="Edit profile preview" />
+                      </div>
+                      <div className="co-planner-tiktok-handle">@creatorops</div>
+                      <div className="co-planner-tiktok-profile-stats" aria-label="TikTok profile stats">
+                        <div>
+                          <b>321</b>
+                          <span>Following</span>
+                        </div>
+                        <div>
+                          <b>12.4K</b>
+                          <span>Followers</span>
+                        </div>
+                        <div>
+                          <b>84K</b>
+                          <span>Likes</span>
+                        </div>
+                      </div>
+                      <p>Calm weekly content systems. Week Pack rhythm ready for captions.</p>
+                      <div className="co-planner-tiktok-studio">
+                        <span aria-hidden="true" />
+                        TikTok Studio
+                      </div>
+                      <a href="#planner-preview" onClick={(event) => event.preventDefault()}>
+                        creatorops.studio/week-pack
+                      </a>
+                    </div>
+
+                    <div className="co-planner-tiktok-profile-tabs">
+                      <span className="is-active" aria-label="Videos" />
+                      <span aria-label="Shop" />
+                      <span aria-label="Private" />
+                      <span aria-label="Saved" />
+                      <span aria-label="Liked" />
+                    </div>
+
+                    <div className="co-planner-tiktok-profile-grid">
+                      {(verticalPreviewSlots.length ? verticalPreviewSlots : plannerPreviewSlots).map((slot, index) => (
+                        <TikTokProfileTile
+                          key={slot.key}
+                          tileId={slot.tileId}
+                          index={index}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="co-planner-tiktok-bottom-nav" aria-label="TikTok bottom navigation preview">
+                    <span>Home</span>
+                    <span>Friends</span>
+                    <strong>+</strong>
+                    <span>Inbox</span>
+                    <span className="is-active">Profile</span>
                   </div>
                 </div>
-
-                <div className="co-planner-phone-tabs">
-                  <span>Posts</span>
-                  <span>Reels</span>
-                  <span>Tagged</span>
-                </div>
-
-                <div className="co-planner-phone-grid">
-                  {plannerPreviewSlots.map((slot) => (
-                    <PhoneGridTile
-                      key={slot.key}
-                      tileId={slot.tileId}
-                    />
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </aside>
