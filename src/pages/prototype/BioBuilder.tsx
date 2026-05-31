@@ -17,6 +17,7 @@ const STARTER_GRID = [
 type ToneKey = "clear" | "warm" | "premium";
 type CtaGoalKey = "dm" | "book" | "join" | "browse";
 type BioVariantId = "clear" | "premium" | "warm";
+type PhonePreviewMode = "instagram" | "tiktok";
 
 type FormState = {
   displayName: string;
@@ -386,6 +387,7 @@ export default function BioBuilder() {
   const [uploadedGridUrls, setUploadedGridUrls] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [actionStatus, setActionStatus] = useState("Bio Pack ready");
+  const [phonePreviewMode, setPhonePreviewMode] = useState<PhonePreviewMode>("instagram");
 
   const captionPreview = useMemo(() => {
     const maybeCaption =
@@ -666,6 +668,27 @@ export default function BioBuilder() {
       scrollTop: 0,
       dragging: false,
     };
+  };
+
+  const renderTikTokTile = (src: string, index: number) => {
+    const playCounts = ["8.2K", "12K", "6.4K", "9.8K", "7.1K", "10K", "5.6K", "11K", "4.9K"];
+
+    return (
+      <div key={`${src}-tiktok-${index}`} className="co-planner-tiktok-profile-tile">
+        <img
+          className="co-planner-tiktok-profile-tile-media"
+          src={src}
+          alt={`Grid post ${index + 1}`}
+          draggable={false}
+          loading="lazy"
+          decoding="async"
+        />
+        <span className="co-planner-tiktok-profile-plays">
+          <span aria-hidden="true" />
+          {playCounts[index % playCounts.length]}
+        </span>
+      </div>
+    );
   };
 
   return (
@@ -975,6 +998,22 @@ export default function BioBuilder() {
               <div className="mt-2 text-lg font-medium tracking-[-0.03em] text-[color:var(--co-text)]">
                 Profile Preview
               </div>
+              <div className="co-planner-preview-mode-toggle" role="group" aria-label="Profile preview mode">
+                <button
+                  type="button"
+                  className={phonePreviewMode === "instagram" ? "is-active" : ""}
+                  onClick={() => setPhonePreviewMode("instagram")}
+                >
+                  Instagram
+                </button>
+                <button
+                  type="button"
+                  className={phonePreviewMode === "tiktok" ? "is-active" : ""}
+                  onClick={() => setPhonePreviewMode("tiktok")}
+                >
+                  TikTok
+                </button>
+              </div>
             </div>
 
             <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface-2)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
@@ -982,121 +1021,183 @@ export default function BioBuilder() {
             </div>
           </div>
 
-          <div className="co-iphone-shell" aria-label="iPhone 17 Pro Max profile preview">
+          <div className="co-iphone-shell co-planner-phone-shell co-bio-phone-shell" aria-label="Bio Builder mobile profile preview">
             <div className="co-iphone-island" aria-hidden="true" />
             <div className="co-iphone-screen">
-            <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
-              <div className="min-w-0 truncate text-[13px] font-medium text-white/92">
-                {generatedProfile.handle || "yourhandle"}
-              </div>
-              <div className="flex items-center gap-3 text-white/70">
-                <span className="text-xs">+</span>
-                <span className="text-xs">|||</span>
-              </div>
-            </div>
-
-            <div
-              ref={phoneScrollRef}
-              className="co-phone-profile-body co-scrollbar"
-              onPointerDown={onPhonePointerDown}
-              onPointerMove={onPhonePointerMove}
-              onPointerUp={endPhoneDrag}
-              onPointerCancel={endPhoneDrag}
-              onPointerLeave={endPhoneDrag}
-            >
-              <div className="grid min-w-0 grid-cols-[72px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[84px_minmax(0,1fr)]">
-                <div className="h-[72px] w-[72px] overflow-hidden rounded-full border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))] sm:h-[84px] sm:w-[84px]">
-                  <img src={avatarUrl} alt="Profile avatar" className="h-full w-full object-cover opacity-95" />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="grid grid-cols-3 gap-3 text-center text-white/92">
-                    <div>
-                      <div className="text-sm font-semibold">{postsCount}</div>
-                      <div className="mt-1 text-[11px] text-white/55">posts</div>
+              {phonePreviewMode === "instagram" ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
+                    <div className="min-w-0 truncate text-[13px] font-medium text-white/92">
+                      {generatedProfile.handle || "yourhandle"}
                     </div>
-                    <div>
-                      <div className="text-sm font-semibold">12.4K</div>
-                      <div className="mt-1 text-[11px] text-white/55">followers</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold">321</div>
-                      <div className="mt-1 text-[11px] text-white/55">following</div>
+                    <div className="flex items-center gap-3 text-white/70">
+                      <span className="text-xs">+</span>
+                      <span className="text-xs">|||</span>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      type="button"
-                      className="flex-1 rounded-lg bg-[#2b2f36] px-3 py-2 text-[12px] font-medium text-white/92"
-                    >
-                      Follow
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-lg border border-white/10 bg-[#1a1d22] px-3 py-2 text-[12px] font-medium text-white/88"
-                    >
-                      Message
-                    </button>
-                  </div>
-                </div>
-              </div>
+                  <div
+                    ref={phoneScrollRef}
+                    className="co-planner-phone-body co-bio-phone-body"
+                    onPointerDown={onPhonePointerDown}
+                    onPointerMove={onPhonePointerMove}
+                    onPointerUp={endPhoneDrag}
+                    onPointerCancel={endPhoneDrag}
+                    onPointerLeave={endPhoneDrag}
+                  >
+                    <div className="co-planner-phone-profile">
+                      <div className="co-planner-phone-account">
+                        <div className="co-planner-phone-avatar">
+                          <img src={avatarUrl} alt="Profile avatar" draggable={false} loading="lazy" decoding="async" />
+                        </div>
+                        <div className="co-planner-phone-stats" aria-label="Profile stats">
+                          <div>
+                            <strong>{postsCount}</strong>
+                            <span>posts</span>
+                          </div>
+                          <div>
+                            <strong>12.4K</strong>
+                            <span>followers</span>
+                          </div>
+                          <div>
+                            <strong>321</strong>
+                            <span>following</span>
+                          </div>
+                        </div>
+                      </div>
 
-              <div className="mt-5 space-y-2">
-                <div className="text-[13px] font-medium text-white/95">
-                  {generatedProfile.displayName || "Your Name / Brand"}
-                </div>
-                <div className="text-[12px] text-white/50">
-                  {generatedProfile.category || "Creator / Studio / Category"}
-                </div>
+                      <div className="co-planner-phone-actions">
+                        <button type="button">Follow</button>
+                        <button type="button">Message</button>
+                      </div>
 
-                <div className="max-w-[32ch] space-y-1 text-[13px] leading-6 text-white/82">
-                  {activeVariant.bioLines.slice(0, 2).map((line) => (
-                    <div key={line}>{line}</div>
-                  ))}
-                </div>
+                      <div className="co-planner-phone-bio">
+                        <strong>{generatedProfile.displayName || "Your Name / Brand"}</strong>
+                        <span>{generatedProfile.category || "Creator / Studio / Category"}</span>
+                        {activeVariant.bioLines.slice(0, 2).map((line) => (
+                          <span key={line}>{line}</span>
+                        ))}
+                        <a href="#bio-builder-preview" onClick={(event) => event.preventDefault()}>
+                          {generatedProfile.linkLabel} / {generatedProfile.linkUrl}
+                        </a>
+                      </div>
 
-                <div className="break-words text-[12px] text-[#8ab4ff]">
-                  {generatedProfile.linkLabel} / {generatedProfile.linkUrl}
-                </div>
-              </div>
-
-              <div className="mt-5 flex gap-4 overflow-x-auto pb-1">
-                {activeVariant.highlights.map((item, index) => (
-                  <div key={item} className="flex min-w-[62px] flex-col items-center gap-2">
-                    <div className="h-[58px] w-[58px] overflow-hidden rounded-full border border-white/12 bg-[#191c21]">
-                      <img
-                        src={profileGrid[(index + 1) % profileGrid.length] ?? STARTER_GRID[(index + 1) % STARTER_GRID.length]}
-                        alt={item}
-                        className="h-full w-full object-cover opacity-90"
-                      />
+                      <div className="co-planner-phone-highlights" aria-label="Profile highlights">
+                        {activeVariant.highlights.map((item, index) => (
+                          <div key={item} className="co-planner-phone-highlight">
+                            <div className="co-planner-phone-highlight-thumb">
+                              <img
+                                src={profileGrid[(index + 1) % profileGrid.length] ?? STARTER_GRID[(index + 1) % STARTER_GRID.length]}
+                                alt=""
+                                draggable={false}
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            </div>
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="max-w-[64px] truncate text-[11px] text-white/58">{item}</div>
-                  </div>
-                ))}
-              </div>
 
-              <div className="mt-5 grid grid-cols-3 border-y border-white/8 text-center">
-                <div className="border-b border-white/70 py-3 text-[11px] font-medium uppercase tracking-[0.18em] text-white/92">
-                  Posts
+                    <div className="co-planner-phone-tabs">
+                      <span>Posts</span>
+                      <span>Reels</span>
+                      <span>Tagged</span>
+                    </div>
+
+                    <div className="co-planner-phone-grid">
+                      {profileGrid.map((src, index) => (
+                        <div key={`${src}-${index}`} className="co-planner-phone-tile co-bio-phone-post">
+                          <img
+                            src={src}
+                            alt={`Grid post ${index + 1}`}
+                            draggable={false}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="co-planner-tiktok-body">
+                  <div
+                    ref={phoneScrollRef}
+                    className="co-planner-tiktok-scroll"
+                    onPointerDown={onPhonePointerDown}
+                    onPointerMove={onPhonePointerMove}
+                    onPointerUp={endPhoneDrag}
+                    onPointerCancel={endPhoneDrag}
+                    onPointerLeave={endPhoneDrag}
+                  >
+                    <div className="co-planner-tiktok-appbar" aria-label="TikTok profile controls">
+                      <span className="co-planner-tiktok-icon co-planner-tiktok-icon--person" aria-hidden="true" />
+                      <div className="co-planner-tiktok-appbar-actions">
+                        <span className="co-planner-tiktok-icon co-planner-tiktok-icon--steps" aria-hidden="true" />
+                        <span className="co-planner-tiktok-icon co-planner-tiktok-icon--share" aria-hidden="true" />
+                        <span className="co-planner-tiktok-icon co-planner-tiktok-icon--menu" aria-hidden="true" />
+                      </div>
+                    </div>
+
+                    <div className="co-planner-tiktok-profile">
+                      <div className="co-planner-tiktok-profile-avatar">
+                        <img src={avatarUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                        <span aria-hidden="true">+</span>
+                      </div>
+                      <div className="co-planner-tiktok-name-row">
+                        <strong>{generatedProfile.displayName || "CreatorOps"}</strong>
+                        <span>1</span>
+                        <button type="button" aria-label="Edit profile preview" />
+                      </div>
+                      <div className="co-planner-tiktok-handle">@{generatedProfile.handle || "creatorops"}</div>
+                      <div className="co-planner-tiktok-profile-stats" aria-label="TikTok profile stats">
+                        <div>
+                          <b>321</b>
+                          <span>Following</span>
+                        </div>
+                        <div>
+                          <b>12.4K</b>
+                          <span>Followers</span>
+                        </div>
+                        <div>
+                          <b>84K</b>
+                          <span>Likes</span>
+                        </div>
+                      </div>
+                      <p>{activeVariant.bioLines.slice(0, 2).join(" ")}</p>
+                      <div className="co-planner-tiktok-studio">
+                        <span aria-hidden="true" />
+                        TikTok Studio
+                      </div>
+                      <a href="#bio-builder-preview" onClick={(event) => event.preventDefault()}>
+                        {generatedProfile.linkLabel} / {generatedProfile.linkUrl}
+                      </a>
+                    </div>
+
+                    <div className="co-planner-tiktok-profile-tabs">
+                      <span className="is-active" aria-label="Videos" />
+                      <span aria-label="Shop" />
+                      <span aria-label="Private" />
+                      <span aria-label="Saved" />
+                      <span aria-label="Liked" />
+                    </div>
+
+                    <div className="co-planner-tiktok-profile-grid">
+                      {profileGrid.map((src, index) => renderTikTokTile(src, index))}
+                    </div>
+                  </div>
+
+                  <div className="co-planner-tiktok-bottom-nav" aria-label="TikTok bottom navigation preview">
+                    <span>Home</span>
+                    <span>Friends</span>
+                    <strong>+</strong>
+                    <span>Inbox</span>
+                    <span className="is-active">Profile</span>
+                  </div>
                 </div>
-                <div className="py-3 text-[11px] uppercase tracking-[0.18em] text-white/45">Reels</div>
-                <div className="py-3 text-[11px] uppercase tracking-[0.18em] text-white/45">Tagged</div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-3 gap-[2px]">
-                {profileGrid.map((src, index) => (
-                  <div key={`${src}-${index}`} className="co-bio-phone-post overflow-hidden bg-white/5">
-                    <img
-                      src={src}
-                      alt={`Grid post ${index + 1}`}
-                      className="h-full w-full object-cover transition duration-300 hover:scale-[1.02]"
-                      draggable={false}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+              )}
             </div>
           </div>
 
