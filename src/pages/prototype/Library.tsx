@@ -1,6 +1,7 @@
 // src/pages/prototype/Library.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { usePrototypeStore } from "../../store/prototypeStore";
 import OnboardingHint from "../../components/prototype/OnboardingHint";
@@ -9,8 +10,16 @@ import {
   WORKSPACE_IMAGE_LIMIT_BYTES,
   type WorkspaceOptimizeResult,
 } from "../../modules/media-converter/core/workspaceOptimize";
+import {
+  PACK_MODE_META,
+  getPackSlotCount,
+  getRemainingAssetCount,
+  isPackSelectionComplete,
+  type PackMode,
+} from "../../modules/prototype/packPlanning";
 
 type OversizedRescueStatus = "waiting" | "optimizing" | "optimized" | "failed" | "skipped";
+type AssetViewMode = "field" | "spatial";
 
 type OversizedRescueItem = {
   id: string;
@@ -41,15 +50,19 @@ function hasTransparencyRisk(items: OversizedRescueItem[]) {
 
 export default function Library() {
   const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const uploadModalTimerRef = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadModalState, setUploadModalState] = useState<"closed" | "opening" | "open" | "closing">("closed");
   const [oversizedRescueItems, setOversizedRescueItems] = useState<OversizedRescueItem[]>([]);
   const [rescueMessage, setRescueMessage] = useState<string | null>(null);
+  const [assetViewMode, setAssetViewMode] = useState<AssetViewMode>("field");
 
   const assets = usePrototypeStore((s) => s.assets);
   const selected = usePrototypeStore((s) => s.selectedAssetIds);
+  const packMode = usePrototypeStore((s) => s.packMode);
+  const setPackMode = usePrototypeStore((s) => s.setPackMode);
   const toggleSelect = usePrototypeStore((s) => s.toggleSelect);
   const clearSelection = usePrototypeStore((s) => s.clearSelection);
   const generateMixes = usePrototypeStore((s) => s.generateMixes);
@@ -63,7 +76,20 @@ export default function Library() {
   const analysisPendingIds = usePrototypeStore((s) => s.analysisPendingIds);
 
   const selectedSet = new Set(selected);
-  const hasSelection = selected.length > 0;
+  const selectedCount = selected.length;
+  const hasSelection = selectedCount > 0;
+  const packMeta = PACK_MODE_META[packMode];
+  const targetCount = getPackSlotCount(packMode);
+  const remainingCount = getRemainingAssetCount(packMode, selectedCount);
+  const isComplete = isPackSelectionComplete(packMode, selectedCount);
+  const isExtended = packMode === "extended-pack";
+  const isSpatialView = assetViewMode === "spatial";
+  const libraryViewTransition = shouldReduceMotion
+    ? ({ duration: 0 } as const)
+    : ({ duration: 0.54, ease: [0.16, 1, 0.3, 1] } as const);
+  const libraryGridTransition = shouldReduceMotion
+    ? ({ duration: 0 } as const)
+    : ({ duration: 0.34, ease: [0.16, 1, 0.3, 1] } as const);
   const maxUploads = 24;
   const remaining = Math.max(0, maxUploads - uploadAssetIds.length);
   const hasRescueItems = oversizedRescueItems.some((item) => item.status !== "skipped");
@@ -88,13 +114,36 @@ export default function Library() {
   const isUploadModalVisible = uploadModalState !== "closed";
 
   // показуємо тільки 4:5 (Instagram feed)
-  const feedAssets = assets.filter((a) => a.ratio === "4:5");
+  const feedAssets = useMemo(() => assets.filter((a) => a.ratio === "4:5"), [assets]);
+  const feedAssetIds = useMemo(() => feedAssets.map((a) => a.id), [feedAssets]);
+  const availableAssetCount = feedAssets.length;
+  const hasEnoughAvailableAssets = availableAssetCount >= targetCount;
+  const selectionStatusLabel = `${selectedCount} / ${targetCount} selected`;
+  const extendedAvailabilityLabel =
+    isExtended && !hasEnoughAvailableAssets
+      ? `${availableAssetCount} available - add uploads for 18-post planning`
+      : null;
+  const extendedHelper = isExtended
+    ? !hasEnoughAvailableAssets
+      ? {
+          title: "Extended Pack needs 18 unique images.",
+          detail: "Add more photos to continue.",
+        }
+      : isComplete
+        ? {
+            title: "Extended Pack setup ready.",
+            detail: "Week 1 + Week 2 selected.",
+          }
+        : {
+            title: `Add ${remainingCount} more image${remainingCount === 1 ? "" : "s"} to prepare an Extended Pack.`,
+            detail: "Extended Pack needs 18 images before Smart Mix.",
+          }
+    : null;
 
   // Pre-scan analysis for assets visible in this view (demo + uploads)
-  const feedKey = feedAssets.map((a) => a.id).join("|");
   useEffect(() => {
-    void scanMissingAssetAnalysis(feedAssets.map((a) => a.id));
-  }, [scanMissingAssetAnalysis, feedKey]);
+    void scanMissingAssetAnalysis(feedAssetIds);
+  }, [scanMissingAssetAnalysis, feedAssetIds]);
 
   useEffect(() => {
     return () => {
@@ -155,8 +204,13 @@ export default function Library() {
   }, [isOptimizingRescue, isUploadModalVisible, uploadModalState]);
 
   const onAddToSmartMix = async () => {
+    if (packMode !== "week-pack") return;
     await generateMixes();
     navigate("/prototype/smart-mix");
+  };
+
+  const onSelectPackMode = (mode: PackMode) => {
+    setPackMode(mode);
   };
 
   const addOversizedRescueItems = (files: File[]) => {
@@ -361,14 +415,93 @@ export default function Library() {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <div className="co-scene-header flex shrink-0 flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-base text-[color:var(--co-text)]">Library</div>
-          <div className="text-sm text-[color:var(--co-muted)]">Intake field for shaping the week.</div>
+      <div className="co-scene-header co-library-header flex shrink-0 flex-wrap items-end justify-between gap-3">
+        <div className="co-library-header-left min-w-0">
+          <div className="co-library-title-copy min-w-0">
+            <div className="text-base text-[color:var(--co-text)]">Library</div>
+            <div className="text-sm text-[color:var(--co-muted)]">Intake field for shaping the week.</div>
+          </div>
+
+          <div className="co-library-view-switch" role="group" aria-label="Asset field view">
+            {[
+              { value: "field" as const, label: "Large", title: "Large asset view" },
+              { value: "spatial" as const, label: "Compact", title: "Compact asset view" },
+            ].map((option) => {
+              const isActive = assetViewMode === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setAssetViewMode(option.value)}
+                  aria-pressed={isActive}
+                  title={option.title}
+                  className={[
+                    "co-library-view-option pressable",
+                    isActive ? "co-library-view-option--active" : "",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  ].join(" ")}
+                >
+                  {isActive ? (
+                    <motion.span layoutId="co-library-view-indicator" className="co-library-view-indicator" />
+                  ) : null}
+                  <span className="relative z-10 font-medium">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPickFiles} className="hidden" />
+
+          <div
+            className="flex flex-1 items-center gap-1 rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/72 p-1 sm:flex-none"
+            role="group"
+            aria-label="Planning mode"
+          >
+            {(Object.keys(PACK_MODE_META) as PackMode[]).map((mode) => {
+              const meta = PACK_MODE_META[mode];
+              const isActive = packMode === mode;
+              const label = mode === "extended-pack" ? "Extended" : "Week";
+              const detail = mode === "extended-pack" ? "18" : "9";
+
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => onSelectPackMode(mode)}
+                  aria-pressed={isActive}
+                  title={`${meta.label}: ${meta.description}`}
+                  className={[
+                    "inline-flex min-h-8 flex-1 items-center justify-center gap-2 rounded-full px-3 text-xs transition pressable sm:flex-none",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                    isActive
+                      ? "bg-[color:var(--co-text)] text-[color:var(--co-bg)]"
+                      : "text-[color:var(--co-muted)] hover:bg-[color:var(--co-bg)]/34 hover:text-[color:var(--co-text)]",
+                  ].join(" ")}
+                >
+                  <span className="font-medium">{label}</span>
+                  <span
+                    className={[
+                      "rounded-full border px-1.5 py-0.5 text-[10px] tabular-nums",
+                      isActive
+                        ? "border-[color:var(--co-bg)]/20 bg-[color:var(--co-bg)]/12"
+                        : "border-[color:var(--co-border-soft)] bg-[color:var(--co-bg)]/24",
+                    ].join(" ")}
+                  >
+                    {detail}
+                  </span>
+                  {meta.badge ? <span className="hidden text-[10px] opacity-70 xl:inline">Pro</span> : null}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="co-library-count-pill flex-1 sm:flex-none" title={`${packMeta.label}: ${packMeta.description}`}>
+            <span>{selectionStatusLabel}</span>
+            {extendedAvailabilityLabel ? <span>{extendedAvailabilityLabel}</span> : null}
+          </div>
 
           <button
             type="button"
@@ -395,32 +528,57 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
           <button
             type="button"
             onClick={clearSelection}
-            disabled={!selected.length}
+            disabled={!selectedCount}
             className={[
               "flex-1 rounded-full border px-4 py-2 text-sm transition pressable sm:flex-none",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-              selected.length
+              selectedCount
                 ? "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-text)] hover:opacity-90"
                 : "cursor-not-allowed border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] opacity-60",
             ].join(" ")}
-            title={selected.length ? "Clear selection" : "Select assets first"}
+            title={selectedCount ? "Clear selection" : "Select assets first"}
           >
             Clear selection
           </button>
 
-          <button
-            type="button"
-            onClick={onAddToSmartMix}
-            className="relative z-10 flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable sm:flex-none
+          {isExtended ? (
+            <>
+              <button
+                type="button"
+                disabled
+                className="relative z-10 flex-1 cursor-not-allowed rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-muted)] opacity-80 sm:flex-none"
+                title={isComplete ? "18-post Smart Mix layout comes next" : "Extended Pack needs 18 images before Smart Mix"}
+              >
+                {isComplete ? "Extended Smart Mix next" : "Select 18 images first"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectPackMode("week-pack")}
+                className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none
 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
-          >
-            Add to Smart Mix
-            <span className="ml-2 inline-flex items-center rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-bg)]/70 px-2 py-0.5 text-[11px] tabular-nums text-[color:var(--co-text)]">
-              {selected.length ? `${selected.length} selected` : "Week Pack"}
-            </span>
-          </button>
+              >
+                Switch to Week Pack
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onAddToSmartMix}
+              className="relative z-10 flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable sm:flex-none
+focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
+            >
+              Add to Smart Mix
+            </button>
+          )}
         </div>
       </div>
+
+      {extendedHelper ? (
+        <div className="co-library-readiness" role="status" aria-live="polite">
+          <span className="font-medium text-[color:var(--co-text)]">{extendedHelper.title}</span>
+          <span>{extendedHelper.detail}</span>
+        </div>
+      ) : null}
 
       {scanStatus || uploadError ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-[color:var(--co-muted)]">
@@ -439,45 +597,94 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
 
       <OnboardingHint />
 
-      <div className="co-scrollbar grid min-h-0 min-w-0 flex-1 content-start gap-2 overflow-y-auto pr-1 sm:gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-        {feedAssets.map((a) => {
-          const isSel = selectedSet.has(a.id);
-          const isUpload = a.source === "upload";
+      <div className="co-library-stage min-h-0 min-w-0 flex-1">
+        <AnimatePresence initial={false}>
+          <motion.div
+            key={assetViewMode}
+            className="co-library-view-sweep"
+            aria-hidden="true"
+            initial={{ opacity: 0, x: isSpatialView ? "-4%" : "4%", scaleX: 0.82 }}
+            animate={{ opacity: shouldReduceMotion ? 0 : [0, 0.42, 0], x: 0, scaleX: [0.82, 1.04, 1] }}
+            exit={{ opacity: 0 }}
+            transition={libraryViewTransition}
+          />
+        </AnimatePresence>
 
-          return (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => toggleSelect(a.id)}
-              aria-pressed={isSel}
-              className={[
-                "group relative overflow-hidden rounded-xl border bg-[color:var(--co-surface-2)] text-left shadow-sm transition pressable",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-                isSel
-                  ? "border-[color:var(--co-border)] shadow-md"
-                  : "border-[color:var(--co-border)] hover:opacity-[0.96]",
-              ].join(" ")}
-            >
-              <div className="relative aspect-[4/5] w-full overflow-hidden bg-[color:var(--co-bg)]/30">
-                <img
-                  src={a.thumbUrl}
-                  alt=""
-                  className={[
-                    "h-full w-full object-contain transition",
-                    isSel ? "opacity-100" : "",
-                    hasSelection && !isSel
-                      ? "opacity-70 saturate-75 group-hover:opacity-100 group-hover:saturate-100"
-                      : !hasSelection
-                      ? "opacity-95 group-hover:opacity-100"
-                      : "",
-                  ].join(" ")}
-                  draggable={false}
-                  loading="lazy"
-                  decoding="async"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
+        <AnimatePresence initial={false} mode="wait">
+          <motion.div
+            key={assetViewMode}
+            data-view-mode={assetViewMode}
+            initial={
+              shouldReduceMotion
+                ? false
+                : {
+                    opacity: 0,
+                    y: isSpatialView ? 10 : -8,
+                    scale: isSpatialView ? 0.992 : 1.006,
+                    filter: "blur(10px)",
+                  }
+            }
+            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+            exit={
+              shouldReduceMotion
+                ? { opacity: 0 }
+                : {
+                    opacity: 0,
+                    y: isSpatialView ? -8 : 10,
+                    scale: isSpatialView ? 1.006 : 0.992,
+                    filter: "blur(10px)",
+                  }
+            }
+            transition={libraryGridTransition}
+            className={[
+              "co-library-grid co-scrollbar grid min-h-0 min-w-0 content-start overflow-y-auto pr-1",
+              isSpatialView
+                ? "gap-1.5 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-12"
+                : "gap-2 sm:gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6",
+            ].join(" ")}
+          >
+          {feedAssets.map((a, index) => {
+            const isSel = selectedSet.has(a.id);
+            const isUpload = a.source === "upload";
+            const selectionLimitReached = !isSel && selectedCount >= targetCount;
+
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => toggleSelect(a.id)}
+                aria-pressed={isSel}
+                title={selectionLimitReached ? `${packMeta.label} is full` : "Toggle asset"}
+                className={[
+                  "co-library-card group relative overflow-hidden rounded-xl border bg-[color:var(--co-surface-2)] text-left shadow-sm pressable",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  isSel
+                    ? "border-[color:var(--co-border)] shadow-md"
+                    : "border-[color:var(--co-border)] hover:opacity-[0.96]",
+                  selectionLimitReached ? "cursor-not-allowed opacity-70" : "",
+                  hasSelection && !isSel ? "saturate-75" : "",
+                ].join(" ")}
+              >
+                <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-[color:var(--co-bg)]/30">
+                  <img
+                    src={a.thumbUrl}
+                    alt=""
+                    className={[
+                      "h-full w-full object-cover transition-opacity duration-200",
+                      isSel ? "opacity-100" : "",
+                      hasSelection && !isSel
+                        ? "opacity-70 group-hover:opacity-100"
+                        : !hasSelection
+                          ? "opacity-95 group-hover:opacity-100"
+                          : "",
+                    ].join(" ")}
+                    draggable={false}
+                    loading={index < 12 ? "eager" : "lazy"}
+                    decoding="async"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
 
                 {isSel ? (
                   <div className="pointer-events-none absolute inset-0 rounded-xl ring-4 ring-[color:var(--co-text)]/18 ring-inset" />
@@ -522,10 +729,12 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                 >
                   <span className="text-sm leading-none">{isSel ? "✓" : "+"}</span>
                 </div>
-              </div>
-            </button>
-          );
-        })}
+                </div>
+              </button>
+            );
+          })}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {isDragging ? (

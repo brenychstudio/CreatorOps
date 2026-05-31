@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { buildMockAssets, type Asset } from "../data/mockAssets";
 import { computeAssetAnalysisFromUrl } from "../lib/assetAnalysis";
+import { PACK_MODE_META, getPackSlotCount, type PackMode } from "../modules/prototype/packPlanning";
+
+export { PACK_MODE_META };
+export type { PackMode };
 
 export type Tone = "Minimal" | "Neutral" | "Emotional" | "Sales";
 export type Length = "Short" | "Medium" | "Long";
@@ -68,6 +72,7 @@ type DragFrom = { dayIndex: number; slotIndex: number };
 type PrototypeState = {
   assets: Asset[];
   selectedAssetIds: string[];
+  packMode: PackMode;
   mixSeed: number;
 
   // Uploads (offline, session-only)
@@ -99,6 +104,8 @@ type PrototypeState = {
   readout: Readout;
 
   getAssetById: (id: string) => Asset | undefined;
+  setPackMode: (mode: PackMode) => void;
+  getPackTargetCount: () => number;
   toggleSelect: (id: string) => void;
   clearSelection: () => void;
 
@@ -923,6 +930,8 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
       const initial: Omit<
         PrototypeState,
         | "getAssetById"
+        | "setPackMode"
+        | "getPackTargetCount"
         | "toggleSelect"
         | "clearSelection"
         | "addUploads"
@@ -948,6 +957,7 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
       > = {
         assets,
         selectedAssetIds: [],
+        packMode: "week-pack",
         mixSeed: 1,
         uploadAssetIds: [],
         uploadError: undefined,
@@ -1246,10 +1256,29 @@ function buildMixFromPool(
 
         getAssetById: (id) => get().assets.find((a) => a.id === id),
 
+        getPackTargetCount: () => getPackSlotCount(get().packMode),
+
+        setPackMode: (mode) =>
+          set((state) => {
+            const targetCount = getPackSlotCount(mode);
+            const selectedAssetIds = state.selectedAssetIds.slice(0, targetCount);
+
+            return {
+              packMode: mode,
+              selectedAssetIds,
+              readout: computeReadoutLite({ selectedAssetIds, mixes: state.mixes }),
+            };
+          }),
+
         toggleSelect: (id) =>
           set((state) => {
             const isOn = state.selectedAssetIds.includes(id);
-            const selectedAssetIds = isOn ? state.selectedAssetIds.filter((x) => x !== id) : [...state.selectedAssetIds, id];
+            const targetCount = getPackSlotCount(state.packMode);
+            const selectedAssetIds = isOn
+              ? state.selectedAssetIds.filter((x) => x !== id)
+              : state.selectedAssetIds.length >= targetCount
+                ? state.selectedAssetIds
+                : [...state.selectedAssetIds, id];
 
             return {
               selectedAssetIds,
@@ -1858,6 +1887,7 @@ function buildMixFromPool(
       partialize: (s) => ({
         ai: s.ai,
         captions: s.captions,
+        packMode: s.packMode,
         selectedAssetIds: s.selectedAssetIds,
         mixSeed: s.mixSeed,
         mixes: s.mixes,
@@ -1876,9 +1906,13 @@ function buildMixFromPool(
         const valid = new Set(current.assets.map((a) => a.id));
         const keep = (id: any) => typeof id === "string" && valid.has(id);
 
+        const packMode: PackMode =
+          p.packMode === "extended-pack" || p.packMode === "week-pack" ? p.packMode : current.packMode;
+        const targetCount = getPackSlotCount(packMode);
+
         const selectedAssetIds = Array.isArray(p.selectedAssetIds)
-          ? p.selectedAssetIds.filter(keep)
-          : current.selectedAssetIds;
+          ? p.selectedAssetIds.filter(keep).slice(0, targetCount)
+          : current.selectedAssetIds.slice(0, targetCount);
 
         const planner = Array.isArray(p.planner)
           ? p.planner.map((slot: any) => ({
@@ -1926,6 +1960,7 @@ function buildMixFromPool(
           ...current,
           ai,
           captions,
+          packMode,
           selectedAssetIds,
           mixSeed,
           mixes,
