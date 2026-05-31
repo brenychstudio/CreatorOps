@@ -12,6 +12,7 @@ import Captions from "../pages/prototype/Captions";
 import ExportPage from "../pages/prototype/Export";
 import BioBuilder from "../pages/prototype/BioBuilder";
 import MediaConverter from "../pages/prototype/MediaConverter";
+import ClientReview from "../pages/prototype/ClientReview";
 import AppCrashBoundary from "../components/system/AppCrashBoundary";
 
 export default function AppRoutes() {
@@ -21,6 +22,7 @@ export default function AppRoutes() {
         <Route path="/" element={<Marketing />} />
         <Route path="/story" element={<Story />} />
         <Route path="/app" element={<UserCabinet />} />
+        <Route path="/prototype/client-review" element={<ClientReview />} />
 
         <Route path="/prototype" element={<PrototypeShell />}>
           <Route index element={<Navigate to="library" replace />} />

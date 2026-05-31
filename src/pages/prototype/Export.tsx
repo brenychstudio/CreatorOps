@@ -3,6 +3,8 @@ import JSZip from "jszip";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
+import { writeClientReviewHandoff } from "../../modules/client-review/handoff";
+import type { ClientReviewHandoffItem } from "../../modules/client-review/handoff";
 import { writeMediaConverterHandoff } from "../../modules/media-converter/core/handoff";
 import type { MediaConverterHandoffItem } from "../../modules/media-converter/core/handoff";
 import { usePrototypeStore } from "../../store/prototypeStore";
@@ -131,6 +133,7 @@ export default function Export() {
   const [isZipping, setIsZipping] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
   const [handoffError, setHandoffError] = useState<string | null>(null);
+  const [clientReviewError, setClientReviewError] = useState<string | null>(null);
 
   const [feedbackText, setFeedbackText] = useState("");
   const [diagCopied, setDiagCopied] = useState(false);
@@ -392,6 +395,62 @@ export default function Export() {
       navigate("/prototype/media-converter?source=export");
     } catch {
       setHandoffError("Could not prepare Media Converter handoff.");
+    }
+  };
+
+  const buildClientReviewHandoffPayloadFromExport = () => {
+    const primaryCaption = captions.variants?.[0] || "Caption draft included in Export Pack.";
+    const ctaText = captions.cta || "Save this for your next content batch.";
+    const hashtagArray = captions.hashtags?.length
+      ? captions.hashtags
+      : ["#creatorops", "#weekpack", "#contentworkflow"];
+
+    const items = previewIds.flatMap((id, index): ClientReviewHandoffItem[] => {
+      const asset = id ? getAssetById(id) : undefined;
+      if (!asset?.thumbUrl) return [];
+
+      const order = String(index + 1).padStart(2, "0");
+      const extension = asset.file?.type ? extFromMime(asset.file.type) : extFromPath(asset.thumbUrl);
+      const safeExtension = ["jpg", "png", "webp"].includes(extension) ? extension : "jpg";
+
+      return [
+        {
+          id: asset.id || `review-${order}`,
+          src: asset.thumbUrl,
+          label: `Post #${index + 1}`,
+          day: index < 7 ? DAYS[index] : `Next ${index - 6}`,
+          filename: `week-pack-01-${order}.${safeExtension}`,
+          caption: primaryCaption,
+          cta: ctaText,
+          hashtags: hashtagArray,
+        },
+      ];
+    });
+
+    return {
+      version: "v1" as const,
+      source: "export-week-pack" as const,
+      packTitle: "Week Pack 01",
+      createdAt: new Date().toISOString(),
+      preparedBy: "CreatorOps",
+      items,
+    };
+  };
+
+  const handleOpenClientReview = () => {
+    setClientReviewError(null);
+
+    try {
+      const payload = buildClientReviewHandoffPayloadFromExport();
+      if (!payload.items.length) {
+        setClientReviewError("Could not prepare Client Review.");
+        return;
+      }
+
+      writeClientReviewHandoff(payload);
+      navigate("/prototype/client-review?source=export");
+    } catch {
+      setClientReviewError("Could not prepare Client Review.");
     }
   };
 
@@ -745,6 +804,33 @@ export default function Export() {
                 ].join(" ")}
               >
                 Open in Media Converter
+              </button>
+            </div>
+          </div>
+
+          <div className="co-export-secondary-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Client review</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Approval Preview</div>
+                <p className="mt-2 max-w-[36ch] text-[12px] leading-5 text-[color:var(--co-muted)]">
+                  Preview this Week Pack for client approval.
+                </p>
+                {clientReviewError ? (
+                  <p className="mt-2 text-[11px] leading-5 text-[color:var(--co-muted)]">{clientReviewError}</p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenClientReview}
+                className={[
+                  "rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
+              >
+                Open Client Review
               </button>
             </div>
           </div>
