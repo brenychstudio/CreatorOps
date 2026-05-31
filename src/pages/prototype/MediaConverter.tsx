@@ -2,6 +2,10 @@ import type { DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { convertImageFile } from "../../modules/media-converter/core/browserConvert";
+import {
+  detectCanvasFormatSupport,
+  type MediaConverterFormatSupport,
+} from "../../modules/media-converter/core/formatSupport";
 import type { MediaConverterOutputFormat } from "../../modules/media-converter/core/types";
 
 type ConverterPresetId = "smaller" | "website" | "social" | "quality" | "transparent";
@@ -38,6 +42,7 @@ type ConverterQueueItem = {
   convertedBlob?: Blob;
   convertedName?: string;
   convertedSizeLabel?: string;
+  convertedSizeDeltaLabel?: string;
   convertedFormatLabel?: TargetFormat;
   conversionMessage?: string;
   usedFallback?: boolean;
@@ -46,6 +51,7 @@ type ConverterQueueItem = {
 const MAX_FILES = 20;
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const OUTPUT_FORMATS: TargetFormat[] = ["JPG", "PNG", "WebP"];
 
 const presets = [
   {
@@ -108,6 +114,17 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
+function getSizeDeltaLabel(originalSize: number, convertedSize: number) {
+  if (!originalSize || !convertedSize) return null;
+
+  const delta = convertedSize - originalSize;
+  const percent = Math.round((Math.abs(delta) / originalSize) * 100);
+
+  if (percent < 1) return "similar size";
+  if (delta < 0) return `${percent}% smaller`;
+  return `${percent}% larger`;
+}
+
 function getFormatLabel(file: File): FormatLabel {
   if (file.type === "image/jpeg") return "JPG";
   if (file.type === "image/png") return "PNG";
@@ -166,6 +183,16 @@ function conversionStatusLabel(item: ConverterQueueItem) {
   return item.message || statusLabel(item.status);
 }
 
+function supportSummary(formatSupport: MediaConverterFormatSupport | null) {
+  if (!formatSupport) return "Detecting...";
+  return OUTPUT_FORMATS.map((format) => (formatSupport[format] ? `${format} supported` : `${format} fallback`)).join(" / ");
+}
+
+function formatSupportWarning(formatSupport: MediaConverterFormatSupport | null, targetFormat: TargetFormat) {
+  if (!formatSupport || formatSupport[targetFormat]) return null;
+  return `Selected ${targetFormat} output may fall back to PNG in this browser.`;
+}
+
 function createQueueId(file: File) {
   const randomPart = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
   return `${file.name}-${file.lastModified}-${randomPart}`;
@@ -185,7 +212,11 @@ function conversionErrorMessage(error: unknown) {
 }
 
 function canConvertItem(item: ConverterQueueItem) {
-  return item.status !== "unsupported" && item.status !== "too-large" && item.status !== "metadata-failed";
+  return item.status !== "unsupported" && item.status !== "too-large";
+}
+
+function shouldConvertItem(item: ConverterQueueItem) {
+  return canConvertItem(item) && item.conversionStatus !== "converted" && item.conversionStatus !== "converting";
 }
 
 export default function MediaConverter() {
@@ -196,17 +227,64 @@ export default function MediaConverter() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+  const [formatSupport, setFormatSupport] = useState<MediaConverterFormatSupport | null>(null);
 
   const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? presets[1];
   const convertableCount = queue.filter(canConvertItem).length;
   const convertedCount = queue.filter((item) => item.conversionStatus === "converted").length;
+  const pendingConversionCount = queue.filter(shouldConvertItem).length;
   const convertingCount = queue.filter(
     (item) => item.conversionStatus === "queued" || item.conversionStatus === "converting",
   ).length;
+  const failedCount = queue.filter((item) => item.conversionStatus === "failed").length;
+  const fallbackCount = queue.filter((item) => item.usedFallback).length;
+  const hasConvertedOutputs = convertedCount > 0;
+  const canConvertQueue = pendingConversionCount > 0 && !isConverting;
+  const selectedFormatWarning = formatSupportWarning(formatSupport, selectedPreset.targetFormat);
+  const queueSummary = queue.length
+    ? [
+        `${queue.length} file${queue.length === 1 ? "" : "s"}`,
+        `${convertedCount} converted`,
+        pendingConversionCount ? `${pendingConversionCount} ready` : null,
+        failedCount ? `${failedCount} failed` : null,
+        fallbackCount ? `${fallbackCount} fallback` : null,
+      ]
+        .filter(Boolean)
+        .join(" - ")
+    : "No files yet";
+  const convertQueueLabel = !queue.length
+    ? "Add images first"
+    : isConverting
+      ? "Converting..."
+      : !pendingConversionCount && convertedCount
+        ? "Converted"
+        : "Convert queue";
 
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    detectCanvasFormatSupport()
+      .then((support) => {
+        if (isMounted) setFormatSupport(support);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setFormatSupport({
+            JPG: false,
+            PNG: true,
+            WebP: false,
+          });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -221,9 +299,10 @@ export default function MediaConverter() {
     () => [
       ["Selected preset", selectedPreset.title],
       ["Output format", selectedPreset.targetFormat],
+      ["Browser output", supportSummary(formatSupport)],
       ["Quality", String(selectedPreset.quality)],
       ["Resize", "Original size"],
-      ["Queue", queue.length ? `${queue.length} image${queue.length === 1 ? "" : "s"} ready` : "Waiting for images"],
+      ["Queue", queue.length ? queueSummary : "Waiting for images"],
       ["Converted", `${convertedCount} / ${convertableCount || 0}`],
       ...(isConverting ? ([["Converting", `${convertingCount} / ${convertableCount || 0}`]] as const) : []),
       ["Export", "ZIP planned"],
@@ -234,6 +313,8 @@ export default function MediaConverter() {
       convertingCount,
       isConverting,
       queue.length,
+      queueSummary,
+      formatSupport,
       selectedPreset.quality,
       selectedPreset.targetFormat,
       selectedPreset.title,
@@ -263,6 +344,7 @@ export default function MediaConverter() {
           convertedBlob: undefined,
           convertedName: undefined,
           convertedSizeLabel: undefined,
+          convertedSizeDeltaLabel: undefined,
           convertedFormatLabel: undefined,
           conversionMessage: undefined,
           usedFallback: undefined,
@@ -386,14 +468,103 @@ export default function MediaConverter() {
     setIsConverting(false);
   };
 
+  const resetConvertedOutputs = () => {
+    setQueue((items) =>
+      items.map((item) => {
+        if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
+
+        return {
+          ...item,
+          conversionStatus: item.conversionStatus === "converted" ? "idle" : item.conversionStatus,
+          convertedObjectUrl: undefined,
+          convertedBlob: undefined,
+          convertedName: undefined,
+          convertedSizeLabel: undefined,
+          convertedSizeDeltaLabel: undefined,
+          convertedFormatLabel: undefined,
+          conversionMessage: undefined,
+          usedFallback: undefined,
+        };
+      }),
+    );
+  };
+
+  const retryItem = async (id: string) => {
+    const currentItem = queueRef.current.find((item) => item.id === id);
+    if (!currentItem || !canConvertItem(currentItem) || isConverting) return;
+
+    setIsConverting(true);
+    setQueue((items) =>
+      items.map((item) =>
+        item.id === currentItem.id
+          ? {
+              ...item,
+              conversionStatus: "converting",
+              conversionMessage: "Converting",
+            }
+          : item,
+      ),
+    );
+
+    try {
+      const preset = presets.find((item) => item.id === currentItem.presetId) ?? selectedPreset;
+      const result = await convertImageFile(currentItem.file, {
+        outputFormat: currentItem.targetFormat,
+        quality: preset.quality,
+        backgroundColor: "#ffffff",
+      });
+      const convertedObjectUrl = URL.createObjectURL(result.blob);
+      const convertedName = buildConvertedFilename(currentItem.name, result.extension);
+      const convertedFormatLabel = formatLabelFromMimeType(result.mimeType);
+      const convertedSizeLabel = formatFileSize(result.blob.size);
+      const convertedSizeDeltaLabel = getSizeDeltaLabel(currentItem.file.size, result.blob.size) ?? undefined;
+
+      setQueue((items) =>
+        items.map((item) => {
+          if (item.id !== currentItem.id) return item;
+          if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
+
+          return {
+            ...item,
+            conversionStatus: "converted",
+            convertedObjectUrl,
+            convertedBlob: result.blob,
+            convertedName,
+            convertedSizeLabel,
+            convertedSizeDeltaLabel,
+            convertedFormatLabel,
+            conversionMessage: result.usedFallback
+              ? `Converted as ${convertedFormatLabel} fallback`
+              : `Converted as ${convertedFormatLabel}`,
+            usedFallback: result.usedFallback,
+          };
+        }),
+      );
+    } catch (error) {
+      setQueue((items) =>
+        items.map((item) =>
+          item.id === currentItem.id
+            ? {
+                ...item,
+                conversionStatus: "failed",
+                conversionMessage: conversionErrorMessage(error),
+              }
+            : item,
+        ),
+      );
+    }
+
+    setIsConverting(false);
+  };
+
   const handleConvertQueue = async () => {
-    const itemsToConvert = queueRef.current.filter(canConvertItem);
+    const itemsToConvert = queueRef.current.filter(shouldConvertItem);
     if (!itemsToConvert.length || isConverting) return;
 
     setIsConverting(true);
     setQueue((items) =>
       items.map((item) =>
-        canConvertItem(item)
+        shouldConvertItem(item)
           ? {
               ...item,
               conversionStatus: "queued",
@@ -429,6 +600,8 @@ export default function MediaConverter() {
         const convertedObjectUrl = URL.createObjectURL(result.blob);
         const convertedName = buildConvertedFilename(currentItem.name, result.extension);
         const convertedFormatLabel = formatLabelFromMimeType(result.mimeType);
+        const convertedSizeLabel = formatFileSize(result.blob.size);
+        const convertedSizeDeltaLabel = getSizeDeltaLabel(currentItem.file.size, result.blob.size) ?? undefined;
 
         setQueue((items) =>
           items.map((item) => {
@@ -441,11 +614,12 @@ export default function MediaConverter() {
               convertedObjectUrl,
               convertedBlob: result.blob,
               convertedName,
-              convertedSizeLabel: formatFileSize(result.blob.size),
+              convertedSizeLabel,
+              convertedSizeDeltaLabel,
               convertedFormatLabel,
               conversionMessage: result.usedFallback
                 ? `Converted as ${convertedFormatLabel} fallback`
-                : `Converted · ${formatFileSize(result.blob.size)}`,
+                : `Converted as ${convertedFormatLabel}`,
               usedFallback: result.usedFallback,
             };
           }),
@@ -579,29 +753,37 @@ export default function MediaConverter() {
                   >
                     Choose images
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleConvertQueue}
+                    disabled={!canConvertQueue}
+                    className={[
+                      "rounded-full px-4 py-2 text-sm font-medium pressable",
+                      !canConvertQueue
+                        ? "cursor-not-allowed border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)]"
+                        : "bg-[color:var(--co-text)] text-[color:var(--co-bg)]",
+                    ].join(" ")}
+                  >
+                    {convertQueueLabel}
+                  </button>
+                  {hasConvertedOutputs ? (
+                    <button
+                      type="button"
+                      onClick={resetConvertedOutputs}
+                      disabled={isConverting}
+                      className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] disabled:cursor-not-allowed disabled:text-[color:var(--co-muted)] pressable"
+                    >
+                      Reset outputs
+                    </button>
+                  ) : null}
                   {queue.length ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleConvertQueue}
-                        disabled={!convertableCount || isConverting}
-                        className={[
-                          "rounded-full px-4 py-2 text-sm font-medium pressable",
-                          !convertableCount || isConverting
-                            ? "cursor-not-allowed border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)]"
-                            : "bg-[color:var(--co-text)] text-[color:var(--co-bg)]",
-                        ].join(" ")}
-                      >
-                        {isConverting ? "Converting..." : "Convert queue"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={clearQueue}
-                        className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] pressable"
-                      >
-                        Clear queue
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={clearQueue}
+                      className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] pressable"
+                    >
+                      Clear queue
+                    </button>
                   ) : null}
                   <span className="text-xs leading-5 text-[color:var(--co-muted)]">
                     {queue.length}/{MAX_FILES} local files
@@ -620,7 +802,7 @@ export default function MediaConverter() {
                 </div>
                 <span className="text-xs text-[color:var(--co-muted)]">
                   {queue.length
-                    ? "Files are converted locally in your browser."
+                    ? queueSummary
                     : "Add JPG, PNG, or WebP images to prepare a local conversion queue."}
                 </span>
               </div>
@@ -653,14 +835,15 @@ export default function MediaConverter() {
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-[color:var(--co-text)]">{item.name}</div>
                           <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
-                            {item.formatLabel} · {dimensions} · {item.sizeLabel}
+                            {item.formatLabel} - {dimensions} - {item.sizeLabel}
                           </div>
                           <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
-                            {preset.title} · {item.formatLabel} -&gt; {item.targetFormat}
+                            {preset.title} - {item.formatLabel} -&gt; {item.targetFormat}
                           </div>
                           {item.conversionStatus === "converted" && item.convertedSizeLabel ? (
                             <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
-                              {item.conversionMessage} · {item.convertedSizeLabel}
+                              {item.conversionMessage} - {item.convertedSizeLabel}
+                              {item.convertedSizeDeltaLabel ? ` - ${item.convertedSizeDeltaLabel}` : ""}
                             </div>
                           ) : null}
                           {item.conversionStatus === "failed" && item.conversionMessage ? (
@@ -680,6 +863,16 @@ export default function MediaConverter() {
                               className="rounded-full bg-[color:var(--co-text)] px-3 py-1 text-[11px] font-medium text-[color:var(--co-bg)] pressable"
                             >
                               Download
+                            </button>
+                          ) : null}
+                          {item.conversionStatus === "failed" && canConvertItem(item) ? (
+                            <button
+                              type="button"
+                              onClick={() => retryItem(item.id)}
+                              disabled={isConverting}
+                              className="rounded-full bg-[color:var(--co-text)] px-3 py-1 text-[11px] font-medium text-[color:var(--co-bg)] disabled:cursor-not-allowed disabled:opacity-50 pressable"
+                            >
+                              Retry
                             </button>
                           ) : null}
                           <button
@@ -725,6 +918,11 @@ export default function MediaConverter() {
                   </div>
                 ))}
               </div>
+              {selectedFormatWarning ? (
+                <div className="mt-2 rounded-[0.85rem] border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/45 px-3 py-2 text-xs leading-5 text-[color:var(--co-muted)]">
+                  {selectedFormatWarning}
+                </div>
+              ) : null}
             </Panel>
 
             <Panel className="!h-auto !p-3">

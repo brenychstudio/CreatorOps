@@ -23,6 +23,12 @@ function mimeTypeToExtension(mimeType: MediaConverterMimeType): "jpg" | "png" | 
   return "png";
 }
 
+function resolveBlobMimeType(mimeType: string): MediaConverterMimeType {
+  if (mimeType === "image/jpeg") return "image/jpeg";
+  if (mimeType === "image/webp") return "image/webp";
+  return "image/png";
+}
+
 function resolveOutputSize(sourceWidth: number, sourceHeight: number, maxWidth?: number, maxHeight?: number) {
   if (!maxWidth && !maxHeight) return { width: sourceWidth, height: sourceHeight };
 
@@ -82,11 +88,7 @@ export async function convertImageFile(
     context.drawImage(bitmap, 0, 0, width, height);
 
     const blob = await canvasToBlob(canvas, requestedMimeType, options.quality / 100);
-    const resolvedMimeType = (blob.type || "image/png") as MediaConverterMimeType;
-    const supportedMimeType: MediaConverterMimeType =
-      resolvedMimeType === "image/jpeg" || resolvedMimeType === "image/webp" || resolvedMimeType === "image/png"
-        ? resolvedMimeType
-        : "image/png";
+    const supportedMimeType = resolveBlobMimeType(blob.type);
     const usedFallback = supportedMimeType !== requestedMimeType;
 
     return {
