@@ -6,7 +6,11 @@ import {
   detectCanvasFormatSupport,
   type MediaConverterFormatSupport,
 } from "../../modules/media-converter/core/formatSupport";
-import type { MediaConverterOutputFormat } from "../../modules/media-converter/core/types";
+import type { MediaConverterManifest, MediaConverterOutputFormat } from "../../modules/media-converter/core/types";
+import {
+  buildMediaConverterZipName,
+  createMediaConverterZip,
+} from "../../modules/media-converter/core/zipExport";
 
 type ConverterPresetId = "smaller" | "website" | "social" | "quality" | "transparent";
 type TargetFormat = MediaConverterOutputFormat;
@@ -203,6 +207,46 @@ function buildConvertedFilename(name: string, extension: string) {
   return `${base}-converted.${extension}`;
 }
 
+function getPresetTitle(presetId: ConverterPresetId) {
+  return presets.find((preset) => preset.id === presetId)?.title ?? "Custom";
+}
+
+function buildReadmeText() {
+  return [
+    "CreatorOps Media Converter",
+    "",
+    "This ZIP was generated locally in your browser.",
+    "No files were uploaded for this conversion step.",
+    "",
+    "Contents:",
+    "- converted/: converted image files",
+    "- manifest.json: conversion metadata",
+    "- README.txt: this note",
+    "",
+  ].join("\n");
+}
+
+function buildManifestFromConvertedItems(items: ConverterQueueItem[]): MediaConverterManifest {
+  return {
+    tool: "CreatorOps Media Converter",
+    version: "v1-local",
+    createdAt: new Date().toISOString(),
+    localFirst: true,
+    files: items.map((item) => ({
+      originalName: item.name,
+      convertedName: item.convertedName ?? "",
+      originalFormat: item.formatLabel,
+      outputFormat: item.convertedFormatLabel ?? item.targetFormat,
+      originalSize: item.file.size,
+      convertedSize: item.convertedBlob?.size ?? 0,
+      width: item.width,
+      height: item.height,
+      preset: getPresetTitle(item.presetId),
+      usedFallback: Boolean(item.usedFallback),
+    })),
+  };
+}
+
 function conversionErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "unknown";
   if (message === "decode-failed") return "This image could not be decoded in the browser.";
@@ -227,9 +271,14 @@ export default function MediaConverter() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+  const [isCreatingZip, setIsCreatingZip] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
   const [formatSupport, setFormatSupport] = useState<MediaConverterFormatSupport | null>(null);
 
   const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? presets[1];
+  const convertedItems = queue.filter(
+    (item) => item.conversionStatus === "converted" && item.convertedBlob && item.convertedName,
+  );
   const convertableCount = queue.filter(canConvertItem).length;
   const convertedCount = queue.filter((item) => item.conversionStatus === "converted").length;
   const pendingConversionCount = queue.filter(shouldConvertItem).length;
@@ -239,8 +288,17 @@ export default function MediaConverter() {
   const failedCount = queue.filter((item) => item.conversionStatus === "failed").length;
   const fallbackCount = queue.filter((item) => item.usedFallback).length;
   const hasConvertedOutputs = convertedCount > 0;
+  const hasConvertedItems = convertedItems.length > 0;
+  const allValidConverted = convertableCount > 0 && convertedItems.length === convertableCount;
   const canConvertQueue = pendingConversionCount > 0 && !isConverting;
   const selectedFormatWarning = formatSupportWarning(formatSupport, selectedPreset.targetFormat);
+  const zipPlanStatus = zipError
+    ? "Export failed"
+    : isCreatingZip
+      ? "Creating ZIP..."
+      : hasConvertedItems
+        ? `${convertedItems.length} file${convertedItems.length === 1 ? "" : "s"} ready`
+        : "Ready after conversion";
   const queueSummary = queue.length
     ? [
         `${queue.length} file${queue.length === 1 ? "" : "s"}`,
@@ -248,6 +306,7 @@ export default function MediaConverter() {
         pendingConversionCount ? `${pendingConversionCount} ready` : null,
         failedCount ? `${failedCount} failed` : null,
         fallbackCount ? `${fallbackCount} fallback` : null,
+        allValidConverted ? "ZIP ready" : hasConvertedItems ? "ZIP includes converted files only" : null,
       ]
         .filter(Boolean)
         .join(" - ")
@@ -304,8 +363,8 @@ export default function MediaConverter() {
       ["Resize", "Original size"],
       ["Queue", queue.length ? queueSummary : "Waiting for images"],
       ["Converted", `${convertedCount} / ${convertableCount || 0}`],
+      ["ZIP", zipPlanStatus],
       ...(isConverting ? ([["Converting", `${convertingCount} / ${convertableCount || 0}`]] as const) : []),
-      ["Export", "ZIP planned"],
     ],
     [
       convertableCount,
@@ -315,6 +374,7 @@ export default function MediaConverter() {
       queue.length,
       queueSummary,
       formatSupport,
+      zipPlanStatus,
       selectedPreset.quality,
       selectedPreset.targetFormat,
       selectedPreset.title,
@@ -330,6 +390,7 @@ export default function MediaConverter() {
     });
 
     setSelectedPresetId(presetId);
+    setZipError(null);
     setQueue((items) =>
       items.map((item) => {
         const state = plannedState(item.formatLabel, preset.targetFormat);
@@ -438,6 +499,7 @@ export default function MediaConverter() {
     }
 
     if (accepted.length) {
+      setZipError(null);
       setQueue((items) => [...items, ...accepted]);
       accepted.forEach(loadDimensions);
     }
@@ -446,6 +508,7 @@ export default function MediaConverter() {
   };
 
   const removeItem = (id: string) => {
+    setZipError(null);
     setQueue((items) => {
       const item = items.find((current) => current.id === id);
       if (item) {
@@ -466,9 +529,11 @@ export default function MediaConverter() {
     });
     setWarnings([]);
     setIsConverting(false);
+    setZipError(null);
   };
 
   const resetConvertedOutputs = () => {
+    setZipError(null);
     setQueue((items) =>
       items.map((item) => {
         if (item.convertedObjectUrl) URL.revokeObjectURL(item.convertedObjectUrl);
@@ -493,6 +558,7 @@ export default function MediaConverter() {
     const currentItem = queueRef.current.find((item) => item.id === id);
     if (!currentItem || !canConvertItem(currentItem) || isConverting) return;
 
+    setZipError(null);
     setIsConverting(true);
     setQueue((items) =>
       items.map((item) =>
@@ -561,6 +627,7 @@ export default function MediaConverter() {
     const itemsToConvert = queueRef.current.filter(shouldConvertItem);
     if (!itemsToConvert.length || isConverting) return;
 
+    setZipError(null);
     setIsConverting(true);
     setQueue((items) =>
       items.map((item) =>
@@ -650,6 +717,37 @@ export default function MediaConverter() {
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
+  };
+
+  const handleDownloadZip = async () => {
+    if (!convertedItems.length || isCreatingZip) return;
+
+    setIsCreatingZip(true);
+    setZipError(null);
+
+    try {
+      const manifest = buildManifestFromConvertedItems(convertedItems);
+      const zipBlob = await createMediaConverterZip({
+        files: convertedItems.map((item) => ({
+          path: `converted/${item.convertedName!}`,
+          blob: item.convertedBlob!,
+        })),
+        manifest,
+        readmeText: buildReadmeText(),
+      });
+      const url = URL.createObjectURL(zipBlob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = buildMediaConverterZipName();
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setZipError("ZIP export failed. Try downloading files individually.");
+    } finally {
+      setIsCreatingZip(false);
+    }
   };
 
   const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
@@ -766,6 +864,20 @@ export default function MediaConverter() {
                   >
                     {convertQueueLabel}
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadZip}
+                    disabled={!hasConvertedItems || isCreatingZip}
+                    className={[
+                      "rounded-full px-4 py-2 text-sm font-medium pressable",
+                      allValidConverted
+                        ? "bg-[color:var(--co-text)] text-[color:var(--co-bg)]"
+                        : "border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-text)]",
+                      !hasConvertedItems || isCreatingZip ? "cursor-not-allowed opacity-55" : "hover:bg-[color:var(--co-surface-active)]",
+                    ].join(" ")}
+                  >
+                    {isCreatingZip ? "Creating ZIP..." : "Download ZIP"}
+                  </button>
                   {hasConvertedOutputs ? (
                     <button
                       type="button"
@@ -788,6 +900,17 @@ export default function MediaConverter() {
                   <span className="text-xs leading-5 text-[color:var(--co-muted)]">
                     {queue.length}/{MAX_FILES} local files
                   </span>
+                  {zipError ? (
+                    <span className="text-xs leading-5 text-[color:var(--co-muted)]">{zipError}</span>
+                  ) : hasConvertedItems && !allValidConverted ? (
+                    <span className="text-xs leading-5 text-[color:var(--co-muted)]">
+                      ZIP includes converted files only.
+                    </span>
+                  ) : !hasConvertedItems && queue.length ? (
+                    <span className="text-xs leading-5 text-[color:var(--co-muted)]">
+                      ZIP export appears after conversion.
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </Panel>
@@ -906,7 +1029,7 @@ export default function MediaConverter() {
                   </h2>
                 </div>
                 <span className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
-                  ZIP planned
+                  {hasConvertedItems ? "ZIP ready" : "ZIP local"}
                 </span>
               </div>
 
@@ -959,7 +1082,7 @@ export default function MediaConverter() {
           <div className="co-shell-strip rounded-[1.1rem] px-4 py-3">
             <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Local-first by design</div>
             <p className="mt-1 max-w-3xl text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
-              Files are added and converted locally in your browser. Nothing is uploaded for this conversion step.
+              Files are added, converted, and packed locally in your browser. Nothing is uploaded for this conversion step.
             </p>
           </div>
 

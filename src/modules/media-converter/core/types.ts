@@ -18,3 +18,29 @@ export type MediaConverterConvertResult = {
   height: number;
   usedFallback: boolean;
 };
+
+export type MediaConverterZipFile = {
+  path: string;
+  blob: Blob;
+};
+
+export type MediaConverterManifestFile = {
+  originalName: string;
+  convertedName: string;
+  originalFormat: string;
+  outputFormat: string;
+  originalSize: number;
+  convertedSize: number;
+  width?: number;
+  height?: number;
+  preset: string;
+  usedFallback: boolean;
+};
+
+export type MediaConverterManifest = {
+  tool: "CreatorOps Media Converter";
+  version: "v1-local";
+  createdAt: string;
+  localFirst: true;
+  files: MediaConverterManifestFile[];
+};
