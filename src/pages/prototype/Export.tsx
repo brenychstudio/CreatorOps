@@ -3,6 +3,8 @@ import JSZip from "jszip";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
+import { writeMediaConverterHandoff } from "../../modules/media-converter/core/handoff";
+import type { MediaConverterHandoffItem } from "../../modules/media-converter/core/handoff";
 import { usePrototypeStore } from "../../store/prototypeStore";
 
 type CreatorOpsImportMeta = ImportMeta & {
@@ -74,6 +76,12 @@ function extFromPath(url: string) {
   return "jpg";
 }
 
+function mimeHintFromExtension(extension: string): MediaConverterHandoffItem["mimeHint"] {
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return "image/jpeg";
+}
+
 function tsStamp(d = new Date()) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(
@@ -122,6 +130,7 @@ export default function Export() {
 
   const [isZipping, setIsZipping] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
 
   const [feedbackText, setFeedbackText] = useState("");
   const [diagCopied, setDiagCopied] = useState(false);
@@ -337,6 +346,53 @@ export default function Export() {
     }
     // reload to ensure store re-hydrates from a clean slate
     window.location.href = "/prototype/library";
+  };
+
+  const buildMediaConverterHandoffPayloadFromExport = () => {
+    const items = previewIds.flatMap((id, index): MediaConverterHandoffItem[] => {
+      const asset = id ? getAssetById(id) : undefined;
+      if (!asset?.thumbUrl) return [];
+
+      const order = String(index + 1).padStart(2, "0");
+      const extension = asset.file?.type ? extFromMime(asset.file.type) : extFromPath(asset.thumbUrl);
+      const safeExtension = ["jpg", "png", "webp"].includes(extension) ? extension : "jpg";
+
+      return [
+        {
+          id: asset.id || `export-${order}`,
+          src: asset.thumbUrl,
+          filename: `week-pack-01-${order}.${safeExtension}`,
+          label: `Post #${index + 1}`,
+          mimeHint: asset.file?.type ? mimeHintFromExtension(safeExtension) : undefined,
+        },
+      ];
+    });
+
+    return {
+      version: "v1" as const,
+      source: "export-week-pack" as const,
+      packTitle: "Week Pack 01",
+      createdAt: new Date().toISOString(),
+      presetId: "website" as const,
+      items,
+    };
+  };
+
+  const handleOpenMediaConverter = () => {
+    setHandoffError(null);
+
+    try {
+      const payload = buildMediaConverterHandoffPayloadFromExport();
+      if (!payload.items.length) {
+        setHandoffError("Could not prepare Media Converter handoff.");
+        return;
+      }
+
+      writeMediaConverterHandoff(payload);
+      navigate("/prototype/media-converter?source=export");
+    } catch {
+      setHandoffError("Could not prepare Media Converter handoff.");
+    }
   };
 
   const onDownloadPack = async () => {
@@ -664,6 +720,33 @@ export default function Export() {
                 </div>
               </div>
             ) : null}
+          </div>
+
+          <div className="co-export-secondary-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Format handoff</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Media Converter</div>
+                <p className="mt-2 max-w-[40ch] text-[12px] leading-5 text-[color:var(--co-muted)]">
+                  Prepare this Week Pack in Media Converter. Convert final images to JPG, PNG, or WebP before sharing.
+                </p>
+                {handoffError ? (
+                  <p className="mt-2 text-[11px] leading-5 text-[color:var(--co-muted)]">{handoffError}</p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenMediaConverter}
+                className={[
+                  "rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-text)] hover:opacity-90",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
+              >
+                Open in Media Converter
+              </button>
+            </div>
           </div>
 
           <div className="co-export-secondary-card">

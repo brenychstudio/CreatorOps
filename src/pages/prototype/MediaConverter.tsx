@@ -6,6 +6,11 @@ import {
   detectCanvasFormatSupport,
   type MediaConverterFormatSupport,
 } from "../../modules/media-converter/core/formatSupport";
+import {
+  clearMediaConverterHandoff,
+  readMediaConverterHandoff,
+  type MediaConverterHandoffPayload,
+} from "../../modules/media-converter/core/handoff";
 import type { MediaConverterManifest, MediaConverterOutputFormat } from "../../modules/media-converter/core/types";
 import {
   buildMediaConverterZipName,
@@ -118,6 +123,10 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
+}
+
 function getSizeDeltaLabel(originalSize: number, convertedSize: number) {
   if (!originalSize || !convertedSize) return null;
 
@@ -140,6 +149,16 @@ function formatLabelFromMimeType(mimeType: string): TargetFormat {
   if (mimeType === "image/jpeg") return "JPG";
   if (mimeType === "image/webp") return "WebP";
   return "PNG";
+}
+
+function inferMimeFromFilename(filename: string): "image/jpeg" | "image/png" | "image/webp" | null {
+  const lower = filename.toLowerCase();
+
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".webp")) return "image/webp";
+
+  return null;
 }
 
 function isSupportedFile(file: File) {
@@ -266,6 +285,7 @@ function shouldConvertItem(item: ConverterQueueItem) {
 export default function MediaConverter() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const queueRef = useRef<ConverterQueueItem[]>([]);
+  const handoffImportRef = useRef(false);
   const [queue, setQueue] = useState<ConverterQueueItem[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<ConverterPresetId>("website");
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -273,6 +293,8 @@ export default function MediaConverter() {
   const [isConverting, setIsConverting] = useState(false);
   const [isCreatingZip, setIsCreatingZip] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
+  const [handoffMessage, setHandoffMessage] = useState<string | null>(null);
+  const [handoffSourceLabel, setHandoffSourceLabel] = useState<string | null>(null);
   const [formatSupport, setFormatSupport] = useState<MediaConverterFormatSupport | null>(null);
 
   const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? presets[1];
@@ -449,10 +471,11 @@ export default function MediaConverter() {
     image.src = item.objectUrl;
   };
 
-  const addFiles = (fileList: FileList | File[]) => {
+  const addFiles = (fileList: FileList | File[], presetOverride?: typeof selectedPreset) => {
     const incoming = Array.from(fileList);
     if (!incoming.length) return;
 
+    const activePreset = presetOverride ?? selectedPreset;
     const nextWarnings = new Set<string>();
     const availableSlots = Math.max(0, MAX_FILES - queueRef.current.length);
 
@@ -488,8 +511,8 @@ export default function MediaConverter() {
         formatLabel,
         sizeLabel: formatFileSize(file.size),
         objectUrl,
-        presetId: selectedPreset.id,
-        targetFormat: selectedPreset.targetFormat,
+        presetId: activePreset.id,
+        targetFormat: activePreset.targetFormat,
         status: "metadata-loading",
         message: "Metadata loading",
         conversionStatus: "idle",
@@ -506,6 +529,70 @@ export default function MediaConverter() {
 
     setWarnings(Array.from(nextWarnings));
   };
+
+  const importHandoffPayload = async (payload: MediaConverterHandoffPayload) => {
+    const files: File[] = [];
+    let failedCount = 0;
+
+    for (const item of payload.items.slice(0, MAX_FILES)) {
+      try {
+        const response = await fetch(item.src);
+        if (!response.ok) throw new Error("handoff-fetch-failed");
+
+        const blob = await response.blob();
+        const type = item.mimeHint ?? inferMimeFromFilename(item.filename) ?? blob.type ?? "image/jpeg";
+        const safeType =
+          type === "image/png" || type === "image/webp" || type === "image/jpeg" ? type : "image/jpeg";
+        const file = new File([blob], item.filename, { type: safeType });
+        files.push(file);
+      } catch {
+        failedCount += 1;
+      }
+    }
+
+    if (files.length) {
+      const handoffPreset = payload.presetId ? presets.find((preset) => preset.id === payload.presetId) : undefined;
+      if (handoffPreset) setSelectedPresetId(handoffPreset.id);
+      addFiles(files, handoffPreset);
+      setHandoffSourceLabel(payload.packTitle);
+      setHandoffMessage(
+        failedCount
+          ? "Some Week Pack images could not be loaded. You can add files manually."
+          : "Week Pack images added to local queue.",
+      );
+      if (failedCount) {
+        setWarnings((items) => uniqueStrings([...items, "Some Week Pack images could not be loaded."]));
+      }
+      clearMediaConverterHandoff();
+      return;
+    }
+
+    setHandoffMessage("No Week Pack handoff found. Add images manually.");
+  };
+
+  useEffect(() => {
+    if (handoffImportRef.current) return;
+    if (!new URLSearchParams(window.location.search).has("source")) return;
+    if (new URLSearchParams(window.location.search).get("source") !== "export") return;
+
+    handoffImportRef.current = true;
+    const payload = readMediaConverterHandoff();
+
+    if (!payload) {
+      setHandoffMessage("No Week Pack handoff found. Add images manually.");
+      return;
+    }
+
+    setHandoffSourceLabel(payload.packTitle);
+    setHandoffMessage("Final Export images were sent from Week Pack 01.");
+
+    if (queueRef.current.length) {
+      setHandoffMessage("Week Pack handoff is ready. Clear the queue before importing another pack.");
+      return;
+    }
+
+    void importHandoffPayload(payload);
+  }, []);
 
   const removeItem = (id: string) => {
     setZipError(null);
@@ -800,12 +887,21 @@ export default function MediaConverter() {
           <div className="flex min-w-0 flex-wrap gap-2">
             <Badge>Local-first</Badge>
             <Badge>JPG / PNG / WebP</Badge>
+            {handoffSourceLabel ? <Badge>{handoffSourceLabel}</Badge> : null}
             <Badge>No upload</Badge>
           </div>
         </header>
 
         <div className="grid min-h-0 min-w-0 items-start gap-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <div className="grid min-h-0 min-w-0 gap-2">
+            {handoffMessage ? (
+              <div className="co-shell-strip rounded-[1.1rem] px-4 py-3">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Week Pack handoff</div>
+                <p className="mt-1 text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
+                  {handoffMessage} Choose a preset, convert locally, then download the converted files.
+                </p>
+              </div>
+            ) : null}
             <Panel className="!h-auto !p-3">
               <div
                 className={[
@@ -918,7 +1014,9 @@ export default function MediaConverter() {
             <Panel className="!h-auto !p-3">
               <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
                 <div>
-                  <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Conversion queue</div>
+                  <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">
+                    {handoffSourceLabel ? "Local queue - Week Pack source" : "Conversion queue"}
+                  </div>
                   <h2 className="mt-1 text-lg font-semibold tracking-[-0.035em] text-[color:var(--co-text)]">
                     {queue.length ? "Local conversion queue" : "No files added yet."}
                   </h2>
@@ -1083,6 +1181,7 @@ export default function MediaConverter() {
             <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Local-first by design</div>
             <p className="mt-1 max-w-3xl text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
               Files are added, converted, and packed locally in your browser. Nothing is uploaded for this conversion step.
+              {handoffSourceLabel ? " Week Pack images are loaded into the local queue; conversion still happens in your browser." : ""}
             </p>
           </div>
 
