@@ -4,6 +4,40 @@ import type { ChangeEvent, DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePrototypeStore } from "../../store/prototypeStore";
 import OnboardingHint from "../../components/prototype/OnboardingHint";
+import {
+  optimizeImageForWorkspace,
+  WORKSPACE_IMAGE_LIMIT_BYTES,
+  type WorkspaceOptimizeResult,
+} from "../../modules/media-converter/core/workspaceOptimize";
+
+type OversizedRescueStatus = "waiting" | "optimizing" | "optimized" | "failed" | "skipped";
+
+type OversizedRescueItem = {
+  id: string;
+  file: File;
+  name: string;
+  originalSizeLabel: string;
+  status: OversizedRescueStatus;
+  optimizedName?: string;
+  optimizedSizeLabel?: string;
+  message?: string;
+};
+
+const RESCUE_SUPPORTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function rescueId(file: File, index: number) {
+  return `rescue-${Date.now()}-${index}-${file.name}-${file.size}`;
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${bytes} B`;
+}
+
+function hasTransparencyRisk(items: OversizedRescueItem[]) {
+  return items.some((item) => item.file.type === "image/png" || item.file.type === "image/webp");
+}
 
 export default function Library() {
   const navigate = useNavigate();
@@ -11,6 +45,8 @@ export default function Library() {
   const uploadModalTimerRef = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadModalState, setUploadModalState] = useState<"closed" | "opening" | "open" | "closing">("closed");
+  const [oversizedRescueItems, setOversizedRescueItems] = useState<OversizedRescueItem[]>([]);
+  const [rescueMessage, setRescueMessage] = useState<string | null>(null);
 
   const assets = usePrototypeStore((s) => s.assets);
   const selected = usePrototypeStore((s) => s.selectedAssetIds);
@@ -28,8 +64,13 @@ export default function Library() {
 
   const selectedSet = new Set(selected);
   const hasSelection = selected.length > 0;
-  const maxUploads = 12;
+  const maxUploads = 24;
   const remaining = Math.max(0, maxUploads - uploadAssetIds.length);
+  const hasRescueItems = oversizedRescueItems.some((item) => item.status !== "skipped");
+  const isOptimizingRescue = oversizedRescueItems.some((item) => item.status === "optimizing");
+  const waitingRescueItems = oversizedRescueItems.filter((item) => item.status === "waiting" || item.status === "failed");
+  const optimizedRescueItems = oversizedRescueItems.filter((item) => item.status === "optimized");
+  const visibleRescueItems = oversizedRescueItems.filter((item) => item.status !== "skipped");
 
   const pendingUploads = useMemo(() => {
     if (!uploadAssetIds.length) return 0;
@@ -77,6 +118,7 @@ export default function Library() {
 
   const closeUploadModal = () => {
     if (uploadModalState === "closed" || uploadModalState === "closing") return;
+    if (isOptimizingRescue) return;
 
     if (uploadModalTimerRef.current !== null) {
       window.clearTimeout(uploadModalTimerRef.current);
@@ -95,6 +137,7 @@ export default function Library() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (uploadModalState === "closing") return;
+      if (isOptimizingRescue) return;
 
       if (uploadModalTimerRef.current !== null) {
         window.clearTimeout(uploadModalTimerRef.current);
@@ -109,18 +152,152 @@ export default function Library() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isUploadModalVisible, uploadModalState]);
+  }, [isOptimizingRescue, isUploadModalVisible, uploadModalState]);
 
   const onAddToSmartMix = async () => {
     await generateMixes();
     navigate("/prototype/smart-mix");
   };
 
+  const addOversizedRescueItems = (files: File[]) => {
+    if (!files.length) return;
+
+    setOversizedRescueItems((current) => [
+      ...files.map((file, index) => ({
+        id: rescueId(file, index),
+        file,
+        name: file.name,
+        originalSizeLabel: formatFileSize(file.size),
+        status: "waiting" as const,
+      })),
+      ...current,
+    ]);
+
+    setRescueMessage(null);
+  };
+
+  const handleIncomingFiles = async (filesLike: FileList | File[]) => {
+    const files = Array.isArray(filesLike) ? filesLike : Array.from(filesLike);
+    if (!files.length) return { hasRescueFiles: false };
+
+    const normalFiles: File[] = [];
+    const rescueFiles: File[] = [];
+
+    for (const file of files) {
+      const isOversized = file.size > WORKSPACE_IMAGE_LIMIT_BYTES;
+      const canRescue = RESCUE_SUPPORTED_TYPES.has(file.type);
+
+      if (isOversized && canRescue) {
+        rescueFiles.push(file);
+      } else {
+        normalFiles.push(file);
+      }
+    }
+
+    if (normalFiles.length) await addUploads(normalFiles);
+    if (rescueFiles.length) {
+      addOversizedRescueItems(rescueFiles);
+      if (!isUploadModalVisible) openUploadModal();
+    }
+
+    return { hasRescueFiles: rescueFiles.length > 0 };
+  };
+
+  const onOptimizeForWorkspace = async () => {
+    if (isOptimizingRescue || !waitingRescueItems.length) return;
+
+    setRescueMessage(null);
+    const readyFiles: WorkspaceOptimizeResult[] = [];
+    let hasFailure = false;
+    let stillTooLarge = false;
+
+    for (const item of waitingRescueItems) {
+      setOversizedRescueItems((current) =>
+        current.map((entry) =>
+          entry.id === item.id ? { ...entry, status: "optimizing", message: "Optimizing..." } : entry,
+        ),
+      );
+
+      try {
+        const result = await optimizeImageForWorkspace(item.file);
+
+        if (result.optimizedSize <= WORKSPACE_IMAGE_LIMIT_BYTES) {
+          readyFiles.push(result);
+          setOversizedRescueItems((current) =>
+            current.map((entry) =>
+              entry.id === item.id
+                ? {
+                    ...entry,
+                    status: "optimized",
+                    optimizedName: result.file.name,
+                    optimizedSizeLabel: formatFileSize(result.optimizedSize),
+                    message: `Optimized copy added - ${formatFileSize(result.originalSize)} -> ${formatFileSize(
+                      result.optimizedSize,
+                    )}`,
+                  }
+                : entry,
+            ),
+          );
+        } else {
+          stillTooLarge = true;
+          setOversizedRescueItems((current) =>
+            current.map((entry) =>
+              entry.id === item.id
+                ? {
+                    ...entry,
+                    status: "failed",
+                    optimizedName: result.file.name,
+                    optimizedSizeLabel: formatFileSize(result.optimizedSize),
+                    message: "This image is still too large after optimization. Try Media Converter for more control.",
+                  }
+                : entry,
+            ),
+          );
+        }
+      } catch {
+        hasFailure = true;
+        setOversizedRescueItems((current) =>
+          current.map((entry) =>
+            entry.id === item.id
+              ? {
+                  ...entry,
+                  status: "failed",
+                  message: "This image could not be optimized in the browser. Try Media Converter for more control.",
+                }
+              : entry,
+          ),
+        );
+      }
+    }
+
+    if (readyFiles.length) {
+      await addUploads(readyFiles.map((result) => result.file));
+    }
+
+    if (hasFailure) {
+      setRescueMessage("Some images could not be optimized. Try Media Converter for more control.");
+    } else if (stillTooLarge) {
+      setRescueMessage("Some images are still too large after optimization. Try Media Converter for more control.");
+    } else if (readyFiles.length) {
+      setOversizedRescueItems([]);
+      setRescueMessage(null);
+      closeUploadModal();
+    }
+  };
+
+  const onSkipLargeFiles = () => {
+    setOversizedRescueItems((current) =>
+      current.map((item) => (item.status === "optimized" ? item : { ...item, status: "skipped" })),
+    );
+    setRescueMessage(null);
+    closeUploadModal();
+  };
+
   const onPickFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.currentTarget.files;
     if (files && files.length) {
-      await addUploads(files);
-      closeUploadModal();
+      const result = await handleIncomingFiles(files);
+      if (!result.hasRescueFiles) closeUploadModal();
     }
     e.currentTarget.value = "";
   };
@@ -135,20 +312,22 @@ export default function Library() {
 
     const files = e.dataTransfer?.files;
     if (files && files.length) {
-      await addUploads(files);
-      closeUploadModal();
+      const result = await handleIncomingFiles(files);
+      if (!result.hasRescueFiles) closeUploadModal();
     }
   };
 
   const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isUploadModalVisible) return;
     if (e.dataTransfer?.types?.includes("Files")) setIsDragging(true);
   };
 
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isUploadModalVisible) return;
     if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     if (e.dataTransfer?.types?.includes("Files")) setIsDragging(true);
   };
@@ -156,6 +335,7 @@ export default function Library() {
   const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isUploadModalVisible) return;
     const next = e.relatedTarget as Node | null;
     if (next && e.currentTarget.contains(next)) return;
     setIsDragging(false);
@@ -165,10 +345,11 @@ export default function Library() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    if (isUploadModalVisible) return;
 
     const files = e.dataTransfer?.files;
     if (files && files.length) {
-      await addUploads(files);
+      await handleIncomingFiles(files);
     }
   };
 
@@ -194,7 +375,7 @@ export default function Library() {
             onClick={openUploadModal}
             className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none
 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
-            title="Upload up to 12 images (<=5MB each)"
+            title="Upload up to 24 images (<=8MB each)"
           >
             Add photos
             <span className="ml-2 text-[11px] text-[color:var(--co-muted)]">{remaining} left</span>
@@ -277,13 +458,13 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                   : "border-[color:var(--co-border)] hover:opacity-[0.96]",
               ].join(" ")}
             >
-              <div className="relative aspect-[4/5] w-full overflow-hidden bg-[color:var(--co-surface)]">
+              <div className="relative aspect-[4/5] w-full overflow-hidden bg-[color:var(--co-bg)]/30">
                 <img
                   src={a.thumbUrl}
                   alt=""
                   className={[
-                    "h-full w-full object-cover transition",
-                    isSel ? "opacity-100 scale-[1.01]" : "",
+                    "h-full w-full object-contain transition",
+                    isSel ? "opacity-100" : "",
                     hasSelection && !isSel
                       ? "opacity-70 saturate-75 group-hover:opacity-100 group-hover:saturate-100"
                       : !hasSelection
@@ -327,7 +508,7 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
 
                 {/* Ratio */}
                 <div className="pointer-events-none absolute left-2 bottom-2 text-[11px] font-medium leading-none text-[color:var(--co-text)]/85 drop-shadow">
-                  {a.ratio}
+                  {isUpload ? "Fit" : a.ratio}
                 </div>
 
                 {/* Select indicator */}
@@ -387,10 +568,14 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                   Upload
                 </div>
                 <div id="co-upload-title" className="mt-2 text-xl font-semibold text-[color:var(--co-text)]">
-                  Add photos
+                  {hasRescueItems ? "Large images detected" : "Add photos"}
                 </div>
                 <div className="mt-2 max-w-[34ch] text-sm leading-6 text-[color:var(--co-muted)]">
-                  Drop images here or choose files from your computer.
+                  {hasRescueItems
+                    ? visibleRescueItems.length === 1
+                      ? "This image is larger than the workspace limit. CreatorOps can create an optimized JPG copy for smoother workspace use."
+                      : "Some images are larger than the workspace limit. CreatorOps can create optimized JPG copies for smoother workspace use."
+                    : "Drop images here or choose files from your computer."}
                 </div>
               </div>
 
@@ -404,42 +589,133 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
               </button>
             </div>
 
-            <div className="co-upload-dropzone">
-              <button
-                type="button"
-                onClick={openSystemPicker}
-                className="co-upload-drop-icon pressable"
-                aria-label="Browse files"
-              >
-                +
-              </button>
-              <div className="text-sm font-medium text-[color:var(--co-text)]">Drop image files</div>
-              <div className="mt-1 text-xs text-[color:var(--co-muted)]">
-                Up to {remaining} more, 5MB each.
-              </div>
-            </div>
+            {hasRescueItems ? (
+              <>
+                <div className="mt-4 rounded-[1.15rem] border border-[color:var(--co-border-soft)] bg-[color:var(--co-bg)]/24 p-3">
+                  <p className="text-xs leading-5 text-[color:var(--co-muted)]">
+                    Your original files stay on your device. Optimization happens locally in your browser. Nothing is uploaded for this step.
+                  </p>
+                  {hasTransparencyRisk(visibleRescueItems) ? (
+                    <p className="mt-1 text-xs leading-5 text-[color:var(--co-muted)]">
+                      Transparent graphics may get a white background as JPG. Use Media Converter if you need to preserve transparency.
+                    </p>
+                  ) : null}
+                  {rescueMessage ? (
+                    <p className="mt-2 text-xs leading-5 text-[color:var(--co-text)]">{rescueMessage}</p>
+                  ) : null}
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="text-[11px] text-[color:var(--co-muted)]">
-                JPG, PNG, WebP, GIF supported by browser preview.
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={closeUploadModal}
-                  className="rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={openSystemPicker}
-                  className="rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable"
-                >
-                  Browse files
-                </button>
-              </div>
-            </div>
+                  <div className="mt-3 grid max-h-[210px] gap-2 overflow-y-auto pr-1 co-scrollbar">
+                    {visibleRescueItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="min-w-0 rounded-xl border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/60 px-3 py-2"
+                      >
+                        <div className="flex min-w-0 items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm text-[color:var(--co-text)]">{item.name}</div>
+                            <div className="mt-1 text-[11px] text-[color:var(--co-muted)]">
+                              {item.optimizedSizeLabel
+                                ? `${item.originalSizeLabel} -> ${item.optimizedSizeLabel}`
+                                : item.originalSizeLabel}
+                            </div>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-2.5 py-1 text-[10px] text-[color:var(--co-muted)]">
+                            {item.status === "waiting"
+                              ? "Ready"
+                              : item.status === "optimizing"
+                                ? "Optimizing"
+                                : item.status === "optimized"
+                                  ? "Added"
+                                  : "Needs control"}
+                          </span>
+                        </div>
+                        {item.message ? (
+                          <div className="mt-2 text-[11px] leading-5 text-[color:var(--co-muted)]">{item.message}</div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                  <button
+                    type="button"
+                    onClick={onOptimizeForWorkspace}
+                    disabled={isOptimizingRescue || !waitingRescueItems.length}
+                    className={[
+                      "rounded-full px-4 py-2 text-sm pressable",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                      isOptimizingRescue || !waitingRescueItems.length
+                        ? "cursor-not-allowed border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)]"
+                        : "bg-[color:var(--co-text)] text-[color:var(--co-bg)] hover:opacity-90",
+                    ].join(" ")}
+                  >
+                    {isOptimizingRescue
+                      ? "Optimizing..."
+                      : optimizedRescueItems.length && !waitingRescueItems.length
+                        ? "Optimized copies added"
+                        : "Optimize for workspace"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onSkipLargeFiles}
+                    disabled={isOptimizingRescue}
+                    className="rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    Skip large files
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("/prototype/media-converter")}
+                    disabled={isOptimizingRescue}
+                    className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] pressable disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    Open Media Converter
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="co-upload-dropzone">
+                  <button
+                    type="button"
+                    onClick={openSystemPicker}
+                    className="co-upload-drop-icon pressable"
+                    aria-label="Browse files"
+                  >
+                    +
+                  </button>
+                  <div className="text-sm font-medium text-[color:var(--co-text)]">Drop image files</div>
+                  <div className="mt-1 text-xs text-[color:var(--co-muted)]">
+                    Up to {remaining} more, 8MB each.
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-[11px] text-[color:var(--co-muted)]">
+                    JPG, PNG, WebP, GIF supported by browser preview.
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={closeUploadModal}
+                      className="rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-muted)] hover:bg-[color:var(--co-surface)] pressable"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openSystemPicker}
+                      className="rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 pressable"
+                    >
+                      Browse files
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

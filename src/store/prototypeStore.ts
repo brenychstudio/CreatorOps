@@ -1270,8 +1270,8 @@ function buildMixFromPool(
           const files = Array.isArray(filesLike) ? filesLike : Array.from(filesLike);
           if (!files.length) return;
 
-          const MAX_FILES = 12;
-          const MAX_BYTES = 5 * 1024 * 1024;
+          const MAX_FILES = 24;
+          const MAX_BYTES = 8 * 1024 * 1024;
 
           const snap = get();
           const remaining = Math.max(0, MAX_FILES - (snap.uploadAssetIds?.length ?? 0));
@@ -1288,7 +1288,7 @@ function buildMixFromPool(
               continue;
             }
             if (f.size > MAX_BYTES) {
-              rejected.push(`${f.name}: >5MB`);
+              rejected.push(`${f.name}: >8MB`);
               continue;
             }
 
@@ -1313,7 +1313,7 @@ function buildMixFromPool(
           }
 
           const overflow = files.length - accepted.length;
-          if (overflow > 0 && remaining === 0) rejected.push("Limit reached (12 uploads).");
+          if (overflow > 0 && remaining === 0) rejected.push("Limit reached (24 uploads).");
 
           set((st) => ({
             assets: [...accepted, ...st.assets],
