@@ -52,6 +52,14 @@ export type CaptionsState = {
   source?: "local" | "openai" | "fallback";
 };
 
+export type ExtendedCaptionDraft = {
+  caption: string;
+  cta: string;
+  hashtags: string[];
+  tone: Tone;
+  length: Length;
+};
+
 export type GeneratedCaptionResult = {
   id: string;
   caption: string;
@@ -72,6 +80,8 @@ type DragFrom = { dayIndex: number; slotIndex: number };
 type PrototypeState = {
   assets: Asset[];
   selectedAssetIds: string[];
+  selectedExtendedAssetIds: string[];
+  selectedExtendedCandidateId: string | null;
   packMode: PackMode;
   mixSeed: number;
 
@@ -95,6 +105,7 @@ type PrototypeState = {
   planner: PlannerSlot[];
 
   captions: CaptionsState;
+  extendedCaptions: Record<string, ExtendedCaptionDraft>;
 
   ai: {
     prompt: string;
@@ -107,7 +118,10 @@ type PrototypeState = {
   setPackMode: (mode: PackMode) => void;
   getPackTargetCount: () => number;
   toggleSelect: (id: string) => void;
+  selectAssets: (ids: string[]) => void;
   clearSelection: () => void;
+  setSelectedExtendedRhythm: (candidateId: string, assetIds: string[]) => void;
+  clearSelectedExtendedRhythm: () => void;
 
   // Scan pipeline (offline): compute asset.analysis via Canvas downscale
   // IDs currently being analyzed (used for UI progress; includes mock + uploads)
@@ -140,6 +154,7 @@ type PrototypeState = {
   // Captions
   generateCaptions: (tone: Tone, length: Length, anchorTileId?: string) => void;
   setGeneratedCaption: (result: GeneratedCaptionResult, source?: CaptionsState["source"]) => void;
+  setExtendedCaption: (assetId: string, draft: ExtendedCaptionDraft) => void;
 
   // AI request (placeholder)
   setAiPrompt: (prompt: string) => void;
@@ -933,7 +948,10 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
         | "setPackMode"
         | "getPackTargetCount"
         | "toggleSelect"
+        | "selectAssets"
         | "clearSelection"
+        | "setSelectedExtendedRhythm"
+        | "clearSelectedExtendedRhythm"
         | "addUploads"
         | "removeUpload"
         | "clearUploads"
@@ -951,12 +969,15 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
         | "clearPlannerSlot"
         | "generateCaptions"
         | "setGeneratedCaption"
+        | "setExtendedCaption"
         | "setAiPrompt"
         | "generateDraftFromPrompt"
         | "exportTextPack"
       > = {
         assets,
         selectedAssetIds: [],
+        selectedExtendedAssetIds: [],
+        selectedExtendedCandidateId: null,
         packMode: "week-pack",
         mixSeed: 1,
         uploadAssetIds: [],
@@ -972,6 +993,7 @@ let mixRun = 0; // increments on Regenerate for deterministic variety
         sequence: Array.from({ length: 7 }, (_, dayIndex) => ({ dayIndex })),
         planner: makePlannerSkeleton(),
         captions: { tone: "Minimal", length: "Short", variants: [], hashtags: [], source: "local" },
+        extendedCaptions: {},
         ai: { prompt: "", draft: "" },
         readout: { selected: 0, mixes: 0, conflictsAvoided: 0, minutesSaved: 0 },
         analysisPendingIds: [],
@@ -1260,8 +1282,7 @@ function buildMixFromPool(
 
         setPackMode: (mode) =>
           set((state) => {
-            const targetCount = getPackSlotCount(mode);
-            const selectedAssetIds = state.selectedAssetIds.slice(0, targetCount);
+            const selectedAssetIds = state.selectedAssetIds;
 
             return {
               packMode: mode,
@@ -1273,12 +1294,23 @@ function buildMixFromPool(
         toggleSelect: (id) =>
           set((state) => {
             const isOn = state.selectedAssetIds.includes(id);
-            const targetCount = getPackSlotCount(state.packMode);
             const selectedAssetIds = isOn
               ? state.selectedAssetIds.filter((x) => x !== id)
-              : state.selectedAssetIds.length >= targetCount
-                ? state.selectedAssetIds
-                : [...state.selectedAssetIds, id];
+              : [...state.selectedAssetIds, id];
+
+            return {
+              selectedAssetIds,
+              readout: computeReadoutLite({ selectedAssetIds, mixes: state.mixes }),
+            };
+          }),
+
+        selectAssets: (ids) =>
+          set((state) => {
+            const validIds = new Set(state.assets.map((asset) => asset.id));
+            const selectedAssetIds = unique([
+              ...state.selectedAssetIds,
+              ...ids.filter((id) => validIds.has(id)),
+            ]);
 
             return {
               selectedAssetIds,
@@ -1294,6 +1326,18 @@ function buildMixFromPool(
               readout: computeReadoutLite({ selectedAssetIds, mixes: state.mixes }),
             };
           }),
+
+        setSelectedExtendedRhythm: (candidateId, assetIds) =>
+          set(() => ({
+            selectedExtendedCandidateId: candidateId,
+            selectedExtendedAssetIds: unique(assetIds.filter(Boolean)).slice(0, 18),
+          })),
+
+        clearSelectedExtendedRhythm: () =>
+          set(() => ({
+            selectedExtendedCandidateId: null,
+            selectedExtendedAssetIds: [],
+          })),
 
         addUploads: async (filesLike) => {
           const files = Array.isArray(filesLike) ? filesLike : Array.from(filesLike);
@@ -1376,6 +1420,7 @@ function buildMixFromPool(
             const assets = st.assets.filter((x) => x.id !== id);
             const uploadAssetIds = st.uploadAssetIds.filter((x) => x !== id);
             const selectedAssetIds = st.selectedAssetIds.filter((x) => x !== id);
+            const selectedExtendedAssetIds = st.selectedExtendedAssetIds.filter((x) => x !== id);
 
             const planner = st.planner.map((p) => (p.tileId === id ? { ...p, tileId: undefined } : p));
             const sequence = st.sequence.map((d) => (d.tileId === id ? { ...d, tileId: undefined } : d));
@@ -1386,6 +1431,9 @@ function buildMixFromPool(
               assets,
               uploadAssetIds,
               selectedAssetIds,
+              selectedExtendedAssetIds,
+              selectedExtendedCandidateId:
+                selectedExtendedAssetIds.length === st.selectedExtendedAssetIds.length ? st.selectedExtendedCandidateId : null,
               planner,
               sequence,
               analysisPendingIds,
@@ -1418,6 +1466,7 @@ function buildMixFromPool(
 
             const assets = st.assets.filter((a) => a.source !== "upload");
             const selectedAssetIds = st.selectedAssetIds.filter((id) => !removeSet.has(id));
+            const selectedExtendedAssetIds = st.selectedExtendedAssetIds.filter((id) => !removeSet.has(id));
 
             const planner = st.planner.map((p) => (p.tileId && removeSet.has(p.tileId) ? { ...p, tileId: undefined } : p));
             const sequence = st.sequence.map((d) => (d.tileId && removeSet.has(d.tileId) ? { ...d, tileId: undefined } : d));
@@ -1429,6 +1478,9 @@ function buildMixFromPool(
               uploadAssetIds: [],
               uploadError: undefined,
               selectedAssetIds,
+              selectedExtendedAssetIds,
+              selectedExtendedCandidateId:
+                selectedExtendedAssetIds.length === st.selectedExtendedAssetIds.length ? st.selectedExtendedCandidateId : null,
               planner,
               sequence,
               analysisPendingIds,
@@ -1803,6 +1855,24 @@ function buildMixFromPool(
             };
           }),
 
+        setExtendedCaption: (assetId, draft) =>
+          set((state) => {
+            if (!assetId) return {};
+
+            return {
+              extendedCaptions: {
+                ...state.extendedCaptions,
+                [assetId]: {
+                  caption: draft.caption,
+                  cta: draft.cta,
+                  hashtags: draft.hashtags.map((tag) => tag.trim()).filter(Boolean).slice(0, 10),
+                  tone: draft.tone,
+                  length: draft.length,
+                },
+              },
+            };
+          }),
+
         setAiPrompt: (prompt) =>
           set((state) => ({
             ai: { ...state.ai, prompt },
@@ -1887,8 +1957,11 @@ function buildMixFromPool(
       partialize: (s) => ({
         ai: s.ai,
         captions: s.captions,
+        extendedCaptions: s.extendedCaptions,
         packMode: s.packMode,
         selectedAssetIds: s.selectedAssetIds,
+        selectedExtendedAssetIds: s.selectedExtendedAssetIds,
+        selectedExtendedCandidateId: s.selectedExtendedCandidateId,
         mixSeed: s.mixSeed,
         mixes: s.mixes,
         bestMixId: s.bestMixId,
@@ -1908,11 +1981,17 @@ function buildMixFromPool(
 
         const packMode: PackMode =
           p.packMode === "extended-pack" || p.packMode === "week-pack" ? p.packMode : current.packMode;
-        const targetCount = getPackSlotCount(packMode);
 
         const selectedAssetIds = Array.isArray(p.selectedAssetIds)
-          ? p.selectedAssetIds.filter(keep).slice(0, targetCount)
-          : current.selectedAssetIds.slice(0, targetCount);
+          ? p.selectedAssetIds.filter(keep)
+          : current.selectedAssetIds;
+        const selectedExtendedAssetIds = Array.isArray(p.selectedExtendedAssetIds)
+          ? p.selectedExtendedAssetIds.filter(keep).slice(0, 18)
+          : current.selectedExtendedAssetIds;
+        const selectedExtendedCandidateId =
+          typeof p.selectedExtendedCandidateId === "string" && selectedExtendedAssetIds.length === 18
+            ? p.selectedExtendedCandidateId
+            : null;
 
         const planner = Array.isArray(p.planner)
           ? p.planner.map((slot: any) => ({
@@ -1953,6 +2032,37 @@ function buildMixFromPool(
 
         const mixSeed = typeof p.mixSeed === "number" ? p.mixSeed : current.mixSeed;
         const captions = p.captions ? p.captions : current.captions;
+        const extendedCaptions: Record<string, ExtendedCaptionDraft> = {};
+        if (p.extendedCaptions && typeof p.extendedCaptions === "object") {
+          for (const [assetId, rawDraft] of Object.entries(p.extendedCaptions as Record<string, any>)) {
+            if (!keep(assetId) || !rawDraft || typeof rawDraft !== "object") continue;
+
+            const tone: Tone =
+              rawDraft.tone === "Minimal" ||
+              rawDraft.tone === "Neutral" ||
+              rawDraft.tone === "Emotional" ||
+              rawDraft.tone === "Sales"
+                ? rawDraft.tone
+                : "Minimal";
+            const length: Length =
+              rawDraft.length === "Short" || rawDraft.length === "Medium" || rawDraft.length === "Long"
+                ? rawDraft.length
+                : "Short";
+
+            extendedCaptions[assetId] = {
+              caption: typeof rawDraft.caption === "string" ? rawDraft.caption : "",
+              cta: typeof rawDraft.cta === "string" ? rawDraft.cta : "",
+              hashtags: Array.isArray(rawDraft.hashtags)
+                ? rawDraft.hashtags
+                    .map((tag: any) => (typeof tag === "string" ? tag.trim() : ""))
+                    .filter(Boolean)
+                    .slice(0, 10)
+                : [],
+              tone,
+              length,
+            };
+          }
+        }
         const ai = p.ai ? p.ai : current.ai;
         const selectedMix = mixes.find((m: Mix) => m.id === bestMixId);
 
@@ -1962,6 +2072,8 @@ function buildMixFromPool(
           captions,
           packMode,
           selectedAssetIds,
+          selectedExtendedAssetIds,
+          selectedExtendedCandidateId,
           mixSeed,
           mixes,
           bestMixId,
@@ -1969,6 +2081,7 @@ function buildMixFromPool(
           planner,
           sequence,
           readout: computeReadoutLite({ selectedAssetIds, mixes }),
+          extendedCaptions,
         };
       },
     }

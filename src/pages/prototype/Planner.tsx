@@ -3,6 +3,8 @@ import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { usePrototypeStore } from "../../store/prototypeStore";
 import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
+import type { Asset } from "../../data/mockAssets";
+import { buildPackSlots, splitSlotsByWeek } from "../../modules/prototype/packPlanning";
 
 type DragPayload = {
   assetId: string;
@@ -10,6 +12,8 @@ type DragPayload = {
 };
 
 type PhonePreviewMode = "instagram" | "tiktok";
+type ExtendedPlannerTab = "week-1" | "week-2" | "all";
+const EXTENDED_PLANNER_DRAG_MIME = "application/x-creatorops-extended-index";
 
 function setDragData(e: React.DragEvent, payload: DragPayload) {
   e.dataTransfer.setData("application/json", JSON.stringify(payload));
@@ -30,22 +34,206 @@ function unique<T>(arr: T[]): T[] {
   return Array.from(new Set(arr));
 }
 
+function formatPostNumber(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function ExtendedPostTile({
+  asset,
+  postNumber,
+  dayLabel,
+  compact = false,
+  dragIndex,
+  isDragging = false,
+  isDropTarget = false,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: {
+  asset: Asset;
+  postNumber: number;
+  dayLabel?: string;
+  compact?: boolean;
+  dragIndex?: number;
+  isDragging?: boolean;
+  isDropTarget?: boolean;
+  onDragStart?: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragOver?: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragLeave?: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDrop?: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragEnd?: () => void;
+}) {
+  const canDrag = typeof dragIndex === "number";
+
+  return (
+    <div
+      className={[
+        "co-extended-planner-tile",
+        compact ? "co-extended-planner-tile--compact" : "",
+        canDrag ? "co-extended-planner-tile--draggable" : "",
+        isDragging ? "co-extended-planner-tile--dragging" : "",
+        isDropTarget ? "co-extended-planner-tile--drop-target" : "",
+      ].join(" ")}
+      draggable={canDrag}
+      onDragStart={canDrag ? (event) => onDragStart?.(event, dragIndex) : undefined}
+      onDragOver={canDrag ? (event) => onDragOver?.(event, dragIndex) : undefined}
+      onDragLeave={canDrag ? (event) => onDragLeave?.(event, dragIndex) : undefined}
+      onDrop={canDrag ? (event) => onDrop?.(event, dragIndex) : undefined}
+      onDragEnd={canDrag ? onDragEnd : undefined}
+    >
+      <img src={asset.thumbUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+      <span className="co-extended-planner-post-badge">{formatPostNumber(postNumber)}</span>
+      {dayLabel ? (
+        <span className="co-extended-planner-day-label">
+          {dayLabel} - {formatPostNumber(postNumber)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ExtendedWeekBoard({
+  title,
+  range,
+  items,
+  startNumber,
+  dragIndex,
+  overIndex,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: {
+  title: string;
+  range: string;
+  items: Asset[];
+  startNumber: number;
+  dragIndex: number | null;
+  overIndex: number | null;
+  onDragStart: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragLeave: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDrop: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragEnd: () => void;
+}) {
+  const slots = buildPackSlots("extended-pack").slice(startNumber - 1, startNumber - 1 + 9);
+
+  return (
+    <section className="co-extended-planner-board co-extended-planner-board--week">
+      <div className="co-extended-planner-board-header">
+        <div>
+          <div className="co-extended-planner-board-title">{title}</div>
+          <div className="co-extended-planner-board-range">{range}</div>
+        </div>
+        <span>{items.length} posts ready</span>
+      </div>
+
+      <div className="co-extended-planner-week-grid">
+        {items.map((asset, index) => {
+          const slot = slots[index];
+          const postNumber = startNumber + index;
+          const sequenceIndex = startNumber - 1 + index;
+
+          return (
+            <ExtendedPostTile
+              key={`${title}-${asset.id}-${postNumber}`}
+              asset={asset}
+              postNumber={postNumber}
+              dayLabel={slot?.dayLabel}
+              dragIndex={sequenceIndex}
+              isDragging={dragIndex === sequenceIndex}
+              isDropTarget={overIndex === sequenceIndex && dragIndex !== sequenceIndex}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ExtendedAllBoard({
+  items,
+  dragIndex,
+  overIndex,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: {
+  items: Asset[];
+  dragIndex: number | null;
+  overIndex: number | null;
+  onDragStart: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragLeave: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDrop: (event: React.DragEvent<HTMLDivElement>, index: number) => void;
+  onDragEnd: () => void;
+}) {
+  return (
+    <section className="co-extended-planner-board co-extended-planner-board--all">
+      <div className="co-extended-planner-board-header">
+        <div>
+          <div className="co-extended-planner-board-title">All 18 rhythm</div>
+          <div className="co-extended-planner-board-range">Review the full feed before captions.</div>
+        </div>
+        <span>Posts 01-18</span>
+      </div>
+
+      <div className="co-extended-planner-board-scroll co-scrollbar">
+        <div className="co-extended-planner-all-grid">
+          {items.map((asset, index) => (
+            <div key={`all-${asset.id}-${index}`} className="contents">
+              <ExtendedPostTile
+                asset={asset}
+                postNumber={index + 1}
+                compact
+                dragIndex={index}
+                isDragging={dragIndex === index}
+                isDropTarget={overIndex === index && dragIndex !== index}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+                onDragEnd={onDragEnd}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Planner() {
   const navigate = useNavigate();
   const pressable = "transition active:translate-y-[1px] active:scale-[0.98]";
 
   const assets = usePrototypeStore((s) => s.assets);
   const selectedAssetIds = usePrototypeStore((s) => s.selectedAssetIds);
+  const selectedExtendedAssetIds = usePrototypeStore((s) => s.selectedExtendedAssetIds);
+  const selectedExtendedCandidateId = usePrototypeStore((s) => s.selectedExtendedCandidateId);
+  const packMode = usePrototypeStore((s) => s.packMode);
   const planner = usePrototypeStore((s) => s.planner);
   const mixes = usePrototypeStore((s) => s.mixes);
   const bestMixId = usePrototypeStore((s) => s.bestMixId);
   const getAssetById = usePrototypeStore((s) => s.getAssetById);
   const buildSequenceFromBest = usePrototypeStore((s) => s.buildSequenceFromBest);
   const sendSequenceToPlanner = usePrototypeStore((s) => s.sendSequenceToPlanner);
+  const setSelectedExtendedRhythm = usePrototypeStore((s) => s.setSelectedExtendedRhythm);
   const setSlot = usePrototypeStore((s) => s.setPlannerSlot);
   const clearSlot = usePrototypeStore((s) => s.clearPlannerSlot);
 
   const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const isExtendedPack = packMode === "extended-pack";
   const phoneDragRef = useRef({
     pointerId: -1,
     startY: 0,
@@ -56,6 +244,83 @@ export default function Planner() {
   const [dragging, setDragging] = useState(false);
   const [overKey, setOverKey] = useState<string | null>(null);
   const [phonePreviewMode, setPhonePreviewMode] = useState<PhonePreviewMode>("instagram");
+  const [extendedTab, setExtendedTab] = useState<ExtendedPlannerTab>("week-1");
+  const [extendedDragIndex, setExtendedDragIndex] = useState<number | null>(null);
+  const [extendedOverIndex, setExtendedOverIndex] = useState<number | null>(null);
+
+  const extendedPlannerItems = useMemo(() => {
+    const selectedExtendedItems = selectedExtendedAssetIds
+      .map((id) => getAssetById(id))
+      .filter((asset): asset is Asset => Boolean(asset))
+      .slice(0, 18);
+
+    const fallbackItems = selectedAssetIds
+      .map((id) => getAssetById(id))
+      .filter((asset): asset is Asset => Boolean(asset))
+      .slice(0, 18);
+
+    return selectedExtendedItems.length === 18 ? selectedExtendedItems : fallbackItems;
+  }, [getAssetById, selectedAssetIds, selectedExtendedAssetIds]);
+
+  const extendedPlannerReady = extendedPlannerItems.length === 18;
+  const { week1: extendedWeek1, week2: extendedWeek2 } = useMemo(
+    () => splitSlotsByWeek(extendedPlannerItems),
+    [extendedPlannerItems]
+  );
+
+  const clearExtendedDragState = () => {
+    setExtendedDragIndex(null);
+    setExtendedOverIndex(null);
+  };
+
+  const swapExtendedItems = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= extendedPlannerItems.length ||
+      toIndex >= extendedPlannerItems.length
+    ) {
+      return;
+    }
+
+    const nextIds = extendedPlannerItems.map((asset) => asset.id);
+    [nextIds[fromIndex], nextIds[toIndex]] = [nextIds[toIndex], nextIds[fromIndex]];
+    setSelectedExtendedRhythm(selectedExtendedCandidateId ?? "planner-extended", nextIds);
+  };
+
+  const onExtendedTileDragStart = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+    setExtendedDragIndex(index);
+    setExtendedOverIndex(null);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(EXTENDED_PLANNER_DRAG_MIME, String(index));
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const onExtendedTileDragOver = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setExtendedOverIndex(index);
+  };
+
+  const onExtendedTileDragLeave = (_event: React.DragEvent<HTMLDivElement>, index: number) => {
+    setExtendedOverIndex((current) => (current === index ? null : current));
+  };
+
+  const onExtendedTileDrop = (event: React.DragEvent<HTMLDivElement>, toIndex: number) => {
+    event.preventDefault();
+    const raw =
+      event.dataTransfer.getData(EXTENDED_PLANNER_DRAG_MIME) ||
+      event.dataTransfer.getData("text/plain");
+    const parsedIndex = Number.parseInt(raw, 10);
+    const fromIndex = Number.isInteger(parsedIndex) ? parsedIndex : extendedDragIndex;
+
+    if (typeof fromIndex === "number") {
+      swapExtendedItems(fromIndex, toIndex);
+    }
+
+    clearExtendedDragState();
+  };
 
   // Helpers
   const getSlotId = (dayIndex: number) =>
@@ -81,8 +346,14 @@ export default function Planner() {
   }, [planner]);
 
   // Next slots (persisted if user drops there)
-  const nextAStored = useMemo(() => getSlotId(7), [planner]);
-  const nextBStored = useMemo(() => getSlotId(8), [planner]);
+  const nextAStored = useMemo(
+    () => planner.find((slot) => slot.dayIndex === 7 && slot.slotIndex === 0)?.tileId,
+    [planner]
+  );
+  const nextBStored = useMemo(
+    () => planner.find((slot) => slot.dayIndex === 8 && slot.slotIndex === 0)?.tileId,
+    [planner]
+  );
 
   const usedAll = useMemo(() => {
     const all = [...weekA, nextAStored, nextBStored].filter(Boolean) as string[];
@@ -127,13 +398,22 @@ export default function Planner() {
   const previewAvatarUrl = heroPreview?.tileId ? getAssetById(heroPreview.tileId)?.thumbUrl : undefined;
   const highlightSlots = plannerPreviewSlots.filter((slot) => Boolean(slot.tileId)).slice(0, 4);
   const verticalPreviewSlots = plannerPreviewSlots.filter((slot) => Boolean(slot.tileId));
+  const extendedPreviewSlots = extendedPlannerItems.map((asset, index) => ({
+    key: `extended-${asset.id}-${index}`,
+    label: formatPostNumber(index + 1),
+    tileId: asset.id,
+  }));
+  const extendedPreviewAvatarUrl = extendedPlannerItems[0]?.thumbUrl;
+  const extendedHighlightAssets = extendedPlannerItems.slice(0, 4);
+  const extendedHighlightLabels = ["Week 1", "Mood", "Flow", "Week 2"];
 
   useEffect(() => {
+    if (isExtendedPack) return;
     if (mixes.length && bestMixId && !hasAnyPlan) {
       buildSequenceFromBest();
       sendSequenceToPlanner();
     }
-  }, [bestMixId, buildSequenceFromBest, hasAnyPlan, mixes.length, sendSequenceToPlanner]);
+  }, [bestMixId, buildSequenceFromBest, hasAnyPlan, isExtendedPack, mixes.length, sendSequenceToPlanner]);
 
   const handleDrop = (targetDayIndex: number, payload: DragPayload) => {
     const draggedId = payload.assetId;
@@ -392,6 +672,341 @@ if (payload.from && isNextTarget && payload.from.dayIndex < 7) {
       dragging: false,
     };
   };
+
+  if (isExtendedPack) {
+    if (!extendedPlannerReady) {
+      return (
+        <FlowEmptyState
+          title="Extended Planner needs 18 selected images."
+          desc="Return to Library or Smart Mix to prepare Week 1 + Week 2."
+          primaryLabel="Back to Library"
+          primaryTo="/prototype/library"
+          secondaryLabel="Back to Smart Mix"
+          secondaryTo="/prototype/smart-mix"
+        />
+      );
+    }
+
+    const activeExtendedBoard =
+      extendedTab === "week-1" ? (
+        <ExtendedWeekBoard
+          title="Week 1"
+          range="Posts 01-09"
+          items={extendedWeek1}
+          startNumber={1}
+          dragIndex={extendedDragIndex}
+          overIndex={extendedOverIndex}
+          onDragStart={onExtendedTileDragStart}
+          onDragOver={onExtendedTileDragOver}
+          onDragLeave={onExtendedTileDragLeave}
+          onDrop={onExtendedTileDrop}
+          onDragEnd={clearExtendedDragState}
+        />
+      ) : extendedTab === "week-2" ? (
+        <ExtendedWeekBoard
+          title="Week 2"
+          range="Posts 10-18"
+          items={extendedWeek2}
+          startNumber={10}
+          dragIndex={extendedDragIndex}
+          overIndex={extendedOverIndex}
+          onDragStart={onExtendedTileDragStart}
+          onDragOver={onExtendedTileDragOver}
+          onDragLeave={onExtendedTileDragLeave}
+          onDrop={onExtendedTileDrop}
+          onDragEnd={clearExtendedDragState}
+        />
+      ) : (
+        <ExtendedAllBoard
+          items={extendedPlannerItems}
+          dragIndex={extendedDragIndex}
+          overIndex={extendedOverIndex}
+          onDragStart={onExtendedTileDragStart}
+          onDragOver={onExtendedTileDragOver}
+          onDragLeave={onExtendedTileDragLeave}
+          onDrop={onExtendedTileDrop}
+          onDragEnd={clearExtendedDragState}
+        />
+      );
+
+    return (
+      <div className="co-workspace-page co-scene co-board-stage co-extended-planner-stage">
+        <div className="co-scene-header co-extended-planner-header">
+          <div className="min-w-0">
+            <div className="co-extended-planner-title-row">
+              <div className="text-base text-[color:var(--co-text)]">Planner</div>
+              <span className="co-extended-planner-pro-badge">Pro preview</span>
+            </div>
+            <div className="mt-1 text-sm text-[color:var(--co-muted)]">
+              Shape Week 1 + Week 2 before captions.
+            </div>
+          </div>
+
+          <div className="co-extended-planner-actions">
+            <button
+              type="button"
+              onClick={() => navigate("/prototype/smart-mix")}
+              className={[
+                "rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                pressable,
+              ].join(" ")}
+            >
+              Back to Smart Mix
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/prototype/captions")}
+              className={[
+                "rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                pressable,
+              ].join(" ")}
+            >
+              Open Extended Captions
+            </button>
+          </div>
+        </div>
+
+        <div className="co-extended-planner-tabs" role="tablist" aria-label="Extended Planner views">
+          {[
+            { id: "week-1" as const, label: "Week 1" },
+            { id: "week-2" as const, label: "Week 2" },
+            { id: "all" as const, label: "All 18" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={extendedTab === tab.id}
+              onClick={() => setExtendedTab(tab.id)}
+              className={extendedTab === tab.id ? "is-active" : ""}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          className={[
+            "co-extended-planner-layout",
+            extendedTab === "all" ? "co-extended-planner-layout--all" : "co-extended-planner-layout--week",
+          ].join(" ")}
+        >
+          <div className="co-extended-planner-main">{activeExtendedBoard}</div>
+
+          <aside className="co-planner-preview-panel co-stage-card co-extended-planner-phone-panel">
+            <div className="co-planner-preview-heading">
+              <div>
+                <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Feed Preview</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Extended rhythm</div>
+                <div className="co-planner-preview-mode-toggle" role="group" aria-label="Extended phone preview mode">
+                  <button
+                    type="button"
+                    className={phonePreviewMode === "instagram" ? "is-active" : ""}
+                    onClick={() => setPhonePreviewMode("instagram")}
+                  >
+                    Instagram
+                  </button>
+                  <button
+                    type="button"
+                    className={phonePreviewMode === "tiktok" ? "is-active" : ""}
+                    onClick={() => setPhonePreviewMode("tiktok")}
+                  >
+                    TikTok
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+                Synced
+              </div>
+            </div>
+
+            <div
+              className="co-iphone-shell co-planner-phone-shell co-extended-planner-phone-shell"
+              aria-label="Extended Planner mobile preview"
+            >
+              <div className="co-iphone-island" aria-hidden="true" />
+              <div className="co-iphone-screen">
+                {phonePreviewMode === "instagram" ? (
+                  <>
+                    <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 sm:px-5">
+                      <div className="min-w-0 truncate text-[13px] font-medium text-white/92">creatorops</div>
+                      <div className="flex items-center gap-3 text-white/70">
+                        <span className="text-xs">+</span>
+                        <span className="text-xs">|||</span>
+                      </div>
+                    </div>
+
+                    <div
+                      className="co-planner-phone-body"
+                      onPointerDown={onPhonePointerDown}
+                      onPointerMove={onPhonePointerMove}
+                      onPointerUp={endPhoneDrag}
+                      onPointerCancel={endPhoneDrag}
+                      onPointerLeave={endPhoneDrag}
+                    >
+                      <div className="co-planner-phone-profile">
+                        <div className="co-planner-phone-account">
+                          <div className="co-planner-phone-avatar">
+                            {extendedPreviewAvatarUrl ? (
+                              <img
+                                src={extendedPreviewAvatarUrl}
+                                alt=""
+                                draggable={false}
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : null}
+                          </div>
+                          <div className="co-planner-phone-stats" aria-label="Extended feed stats">
+                            <div>
+                              <strong>18</strong>
+                              <span>posts</span>
+                            </div>
+                            <div>
+                              <strong>12.4K</strong>
+                              <span>followers</span>
+                            </div>
+                            <div>
+                              <strong>321</strong>
+                              <span>following</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="co-planner-phone-actions">
+                          <button type="button">Follow</button>
+                          <button type="button">Message</button>
+                        </div>
+
+                        <div className="co-planner-phone-bio">
+                          <strong>CreatorOps</strong>
+                          <span>Calm weekly content systems.</span>
+                          <span>Week 1 + Week 2 ready for captions.</span>
+                          <a href="#planner-preview" onClick={(event) => event.preventDefault()}>
+                            creatorops.studio/extended-pack
+                          </a>
+                        </div>
+
+                        <div className="co-planner-phone-highlights" aria-label="Extended profile highlights">
+                          {extendedHighlightAssets.map((asset, index) => (
+                            <div key={`extended-highlight-${asset.id}-${index}`} className="co-planner-phone-highlight">
+                              <div className="co-planner-phone-highlight-thumb">
+                                <img src={asset.thumbUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                              </div>
+                              <span>{extendedHighlightLabels[index] ?? "Post"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="co-planner-phone-tabs">
+                        <span>Posts</span>
+                        <span>Reels</span>
+                        <span>Tagged</span>
+                      </div>
+
+                      <div className="co-planner-phone-grid">
+                        {extendedPreviewSlots.map((slot) => (
+                          <PhoneGridTile key={slot.key} tileId={slot.tileId} />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="co-planner-tiktok-body">
+                    <div
+                      className="co-planner-tiktok-scroll"
+                      onPointerDown={onPhonePointerDown}
+                      onPointerMove={onPhonePointerMove}
+                      onPointerUp={endPhoneDrag}
+                      onPointerCancel={endPhoneDrag}
+                      onPointerLeave={endPhoneDrag}
+                    >
+                      <div className="co-planner-tiktok-appbar" aria-label="TikTok profile controls">
+                        <span className="co-planner-tiktok-icon co-planner-tiktok-icon--person" aria-hidden="true" />
+                        <div className="co-planner-tiktok-appbar-actions">
+                          <span className="co-planner-tiktok-icon co-planner-tiktok-icon--steps" aria-hidden="true" />
+                          <span className="co-planner-tiktok-icon co-planner-tiktok-icon--share" aria-hidden="true" />
+                          <span className="co-planner-tiktok-icon co-planner-tiktok-icon--menu" aria-hidden="true" />
+                        </div>
+                      </div>
+
+                      <div className="co-planner-tiktok-profile">
+                        <div className="co-planner-tiktok-profile-avatar">
+                          {extendedPreviewAvatarUrl ? (
+                            <img
+                              src={extendedPreviewAvatarUrl}
+                              alt=""
+                              draggable={false}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : null}
+                          <span aria-hidden="true">+</span>
+                        </div>
+                        <div className="co-planner-tiktok-name-row">
+                          <strong>CreatorOps</strong>
+                          <span>1</span>
+                          <button type="button" aria-label="Edit profile preview" />
+                        </div>
+                        <div className="co-planner-tiktok-handle">@creatorops</div>
+                        <div className="co-planner-tiktok-profile-stats" aria-label="TikTok profile stats">
+                          <div>
+                            <b>321</b>
+                            <span>Following</span>
+                          </div>
+                          <div>
+                            <b>12.4K</b>
+                            <span>Followers</span>
+                          </div>
+                          <div>
+                            <b>84K</b>
+                            <span>Likes</span>
+                          </div>
+                        </div>
+                        <p>Calm weekly content systems. Extended Pack rhythm ready for captions.</p>
+                        <div className="co-planner-tiktok-studio">
+                          <span aria-hidden="true" />
+                          TikTok Studio
+                        </div>
+                        <a href="#planner-preview" onClick={(event) => event.preventDefault()}>
+                          creatorops.studio/extended-pack
+                        </a>
+                      </div>
+
+                      <div className="co-planner-tiktok-profile-tabs">
+                        <span className="is-active" aria-label="Videos" />
+                        <span aria-label="Shop" />
+                        <span aria-label="Private" />
+                        <span aria-label="Saved" />
+                        <span aria-label="Liked" />
+                      </div>
+
+                      <div className="co-planner-tiktok-profile-grid">
+                        {extendedPreviewSlots.map((slot, index) => (
+                          <TikTokProfileTile key={slot.key} tileId={slot.tileId} index={index} />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="co-planner-tiktok-bottom-nav" aria-label="TikTok bottom navigation preview">
+                      <span>Home</span>
+                      <span>Friends</span>
+                      <strong>+</strong>
+                      <span>Inbox</span>
+                      <span className="is-active">Profile</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    );
+  }
 
 
   // Flow guard: Planner expects a selected Smart Mix and can prepare its own board.

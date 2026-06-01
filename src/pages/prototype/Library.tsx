@@ -1,6 +1,6 @@
 // src/pages/prototype/Library.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, DragEvent } from "react";
+import type { CSSProperties, ChangeEvent, DragEvent } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { usePrototypeStore } from "../../store/prototypeStore";
@@ -34,6 +34,13 @@ type OversizedRescueItem = {
 
 const RESCUE_SUPPORTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+function getLargeFieldCardSize(assetCount: number) {
+  if (assetCount <= 6) return { min: "clamp(15rem, 16vw, 20rem)", max: "20rem" };
+  if (assetCount <= 18) return { min: "clamp(13.5rem, 14vw, 18rem)", max: "18rem" };
+  if (assetCount <= 30) return { min: "clamp(11rem, 11.5vw, 15rem)", max: "15rem" };
+  return { min: "clamp(8.75rem, 9vw, 12.5rem)", max: "12.5rem" };
+}
+
 function rescueId(file: File, index: number) {
   return `rescue-${Date.now()}-${index}-${file.name}-${file.size}`;
 }
@@ -64,6 +71,7 @@ export default function Library() {
   const packMode = usePrototypeStore((s) => s.packMode);
   const setPackMode = usePrototypeStore((s) => s.setPackMode);
   const toggleSelect = usePrototypeStore((s) => s.toggleSelect);
+  const selectAssets = usePrototypeStore((s) => s.selectAssets);
   const clearSelection = usePrototypeStore((s) => s.clearSelection);
   const generateMixes = usePrototypeStore((s) => s.generateMixes);
   const scanMissingAssetAnalysis = usePrototypeStore((s) => s.scanMissingAssetAnalysis);
@@ -116,29 +124,25 @@ export default function Library() {
   // показуємо тільки 4:5 (Instagram feed)
   const feedAssets = useMemo(() => assets.filter((a) => a.ratio === "4:5"), [assets]);
   const feedAssetIds = useMemo(() => feedAssets.map((a) => a.id), [feedAssets]);
+  const allFeedSelected = feedAssetIds.length > 0 && feedAssetIds.every((id) => selectedSet.has(id));
   const availableAssetCount = feedAssets.length;
   const hasEnoughAvailableAssets = availableAssetCount >= targetCount;
-  const selectionStatusLabel = `${selectedCount} / ${targetCount} selected`;
+  const selectionStatusLabel = `${selectedCount} selected`;
+  const targetStatusLabel = isComplete ? `${packMeta.shortLabel} ready` : `${remainingCount} more needed`;
   const extendedAvailabilityLabel =
     isExtended && !hasEnoughAvailableAssets
       ? `${availableAssetCount} available - add uploads for 18-post planning`
       : null;
-  const extendedHelper = isExtended
-    ? !hasEnoughAvailableAssets
-      ? {
-          title: "Extended Pack needs 18 unique images.",
-          detail: "Add more photos to continue.",
-        }
-      : isComplete
-        ? {
-            title: "Extended Pack setup ready.",
-            detail: "Week 1 + Week 2 selected.",
-          }
-        : {
-            title: `Add ${remainingCount} more image${remainingCount === 1 ? "" : "s"} to prepare an Extended Pack.`,
-            detail: "Extended Pack needs 18 images before Smart Mix.",
-          }
-    : null;
+  const largeFieldCardSize = getLargeFieldCardSize(feedAssets.length);
+  const libraryGridStyle = isSpatialView
+    ? undefined
+    : ({
+        "--co-library-field-card-min": largeFieldCardSize.min,
+        "--co-library-field-card-max": largeFieldCardSize.max,
+      } as CSSProperties);
+  const hasUtilityControls = Boolean(
+    scanStatus || uploadError || uploadAssetIds.length || selectedCount || feedAssetIds.length,
+  );
 
   // Pre-scan analysis for assets visible in this view (demo + uploads)
   useEffect(() => {
@@ -209,8 +213,18 @@ export default function Library() {
     navigate("/prototype/smart-mix");
   };
 
+  const onOpenExtendedSmartMix = () => {
+    if (packMode !== "extended-pack" || !isComplete) return;
+    navigate("/prototype/smart-mix");
+  };
+
   const onSelectPackMode = (mode: PackMode) => {
     setPackMode(mode);
+  };
+
+  const onSelectAllFeedAssets = () => {
+    if (!feedAssetIds.length) return;
+    selectAssets(feedAssetIds);
   };
 
   const addOversizedRescueItems = (files: File[]) => {
@@ -452,7 +466,7 @@ export default function Library() {
           </div>
         </div>
 
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <div className="co-library-action-row flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPickFiles} className="hidden" />
 
           <div
@@ -500,6 +514,7 @@ export default function Library() {
 
           <div className="co-library-count-pill flex-1 sm:flex-none" title={`${packMeta.label}: ${packMeta.description}`}>
             <span>{selectionStatusLabel}</span>
+            <span>{targetStatusLabel}</span>
             {extendedAvailabilityLabel ? <span>{extendedAvailabilityLabel}</span> : null}
           </div>
 
@@ -510,56 +525,26 @@ export default function Library() {
 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
             title="Upload up to 24 images (<=8MB each)"
           >
-            Add photos
-            <span className="ml-2 text-[11px] text-[color:var(--co-muted)]">{remaining} left</span>
-          </button>
-
-          {uploadAssetIds.length ? (
-            <button
-              type="button"
-              onClick={clearUploads}
-              className="flex-1 rounded-full border border-[color:var(--co-border)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface)] pressable sm:flex-none
-focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
-            >
-              Clear uploads
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={clearSelection}
-            disabled={!selectedCount}
-            className={[
-              "flex-1 rounded-full border px-4 py-2 text-sm transition pressable sm:flex-none",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
-              selectedCount
-                ? "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-text)] hover:opacity-90"
-                : "cursor-not-allowed border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] opacity-60",
-            ].join(" ")}
-            title={selectedCount ? "Clear selection" : "Select assets first"}
-          >
-            Clear selection
+            <span>Add photos</span>
+            <span className="ml-2 text-[11px] text-[color:var(--co-muted)]">{remaining} upload slots left</span>
           </button>
 
           {isExtended ? (
-            <>
-              <button
-                type="button"
-                disabled
-                className="relative z-10 flex-1 cursor-not-allowed rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-muted)] opacity-80 sm:flex-none"
-                title={isComplete ? "18-post Smart Mix layout comes next" : "Extended Pack needs 18 images before Smart Mix"}
-              >
-                {isComplete ? "Extended Smart Mix next" : "Select 18 images first"}
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectPackMode("week-pack")}
-                className="flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 pressable sm:flex-none
-focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]"
-              >
-                Switch to Week Pack
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={onOpenExtendedSmartMix}
+              disabled={!isComplete}
+              className={[
+                "relative z-10 flex-1 rounded-full px-4 py-2 text-sm transition sm:flex-none",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                isComplete
+                  ? "bg-[color:var(--co-text)] text-[color:var(--co-bg)] hover:opacity-90 pressable"
+                  : "cursor-not-allowed border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] opacity-80",
+              ].join(" ")}
+              title={isComplete ? "Open Extended Smart Mix" : "Extended Pack needs 18 images before Smart Mix"}
+            >
+              {isComplete ? "Open Extended Smart Mix" : "Select 18 images first"}
+            </button>
           ) : (
             <button
               type="button"
@@ -573,24 +558,40 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
         </div>
       </div>
 
-      {extendedHelper ? (
-        <div className="co-library-readiness" role="status" aria-live="polite">
-          <span className="font-medium text-[color:var(--co-text)]">{extendedHelper.title}</span>
-          <span>{extendedHelper.detail}</span>
-        </div>
-      ) : null}
-
-      {scanStatus || uploadError ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-[color:var(--co-muted)]">
+      {hasUtilityControls ? (
+        <div className="co-library-utility-row" aria-label="Library utilities">
           {scanStatus ? (
-            <span className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1">
+            <span className="co-library-utility-chip">
               {scanStatus}
             </span>
           ) : null}
           {uploadError ? (
-            <span className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1">
+            <span className="co-library-utility-chip">
               {uploadError}
             </span>
+          ) : null}
+          {uploadAssetIds.length ? (
+            <button type="button" onClick={clearUploads} className="co-library-utility-button pressable">
+              Clear uploads
+            </button>
+          ) : null}
+          {feedAssetIds.length ? (
+            <button
+              type="button"
+              onClick={onSelectAllFeedAssets}
+              disabled={allFeedSelected}
+              className={[
+                "co-library-utility-button pressable",
+                allFeedSelected ? "cursor-default opacity-60" : "",
+              ].join(" ")}
+            >
+              {allFeedSelected ? "All selected" : "Select all"}
+            </button>
+          ) : null}
+          {selectedCount ? (
+            <button type="button" onClick={clearSelection} className="co-library-utility-button pressable">
+              Clear selection
+            </button>
           ) : null}
         </div>
       ) : null}
@@ -636,17 +637,17 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                   }
             }
             transition={libraryGridTransition}
+            style={libraryGridStyle}
             className={[
               "co-library-grid co-scrollbar grid min-h-0 min-w-0 content-start overflow-y-auto pr-1",
               isSpatialView
                 ? "gap-1.5 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-12"
-                : "gap-2 sm:gap-2.5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6",
+                : "gap-2 sm:gap-2.5",
             ].join(" ")}
           >
           {feedAssets.map((a, index) => {
             const isSel = selectedSet.has(a.id);
             const isUpload = a.source === "upload";
-            const selectionLimitReached = !isSel && selectedCount >= targetCount;
 
             return (
               <button
@@ -654,14 +655,13 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                 type="button"
                 onClick={() => toggleSelect(a.id)}
                 aria-pressed={isSel}
-                title={selectionLimitReached ? `${packMeta.label} is full` : "Toggle asset"}
+                title={isSel ? "Remove from Smart Mix pool" : "Add to Smart Mix pool"}
                 className={[
                   "co-library-card group relative overflow-hidden rounded-xl border bg-[color:var(--co-surface-2)] text-left shadow-sm pressable",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
                   isSel
                     ? "border-[color:var(--co-border)] shadow-md"
                     : "border-[color:var(--co-border)] hover:opacity-[0.96]",
-                  selectionLimitReached ? "cursor-not-allowed opacity-70" : "",
                   hasSelection && !isSel ? "saturate-75" : "",
                 ].join(" ")}
               >

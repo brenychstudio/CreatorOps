@@ -2,7 +2,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
-import { usePrototypeStore } from "../../store/prototypeStore";
+import type { Asset } from "../../data/mockAssets";
+import { buildPackSlots, splitSlotsByWeek } from "../../modules/prototype/packPlanning";
+import {
+  usePrototypeStore,
+  type ExtendedCaptionDraft,
+  type Length,
+  type Tone,
+} from "../../store/prototypeStore";
 
 async function safeCopy(text: string) {
   try {
@@ -28,6 +35,9 @@ async function safeCopy(text: string) {
 }
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+type ExtendedCaptionsWeek = "week-1" | "week-2";
+const CAPTION_TONES = ["Minimal", "Neutral", "Emotional", "Sales"] as const;
+const CAPTION_LENGTHS = ["Short", "Medium", "Long"] as const;
 
 function slotLabel(dayIndex: number) {
   return dayIndex < DAYS.length ? DAYS[dayIndex] : "Next";
@@ -50,7 +60,460 @@ function normalizePostCopy(value: string, postNumber: number) {
   return value.replace(/\bPost #\d+\b/g, `Post #${postNumber}`);
 }
 
+function formatPostNumber(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function buildExtendedFallbackDraft(opts: {
+  asset?: Asset;
+  postNumber: number;
+  weekIndex: 1 | 2;
+  tone: Tone;
+  length: Length;
+}): ExtendedCaptionDraft {
+  const toneLine: Record<Tone, string> = {
+    Minimal: "Clarity over noise.",
+    Neutral: "A calm decision that keeps the week intentional.",
+    Emotional: "A small pause that makes the whole rhythm feel considered.",
+    Sales: "A repeatable signal for the next content batch.",
+  };
+  const weekLine =
+    opts.weekIndex === 2
+      ? "The second week keeps the rhythm moving."
+      : "A calm decision that keeps the week intentional.";
+  const sourceLine = opts.asset?.series ? `${opts.asset.series} keeps the visual system grounded.` : weekLine;
+  const caption =
+    opts.length === "Short"
+      ? `Post #${opts.postNumber}. ${toneLine[opts.tone]}`
+      : `Post #${opts.postNumber}. ${toneLine[opts.tone]} ${sourceLine}`;
+  const ctaByTone: Record<Tone, string> = {
+    Minimal: "Save this for your next content batch.",
+    Neutral: "Use this as a reference for the next weekly plan.",
+    Emotional: "Keep this close when the week needs direction.",
+    Sales: "Turn this into your next repeatable content system.",
+  };
+
+  return {
+    caption,
+    cta: ctaByTone[opts.tone],
+    hashtags: ["#creatorops", "#weekpack", "#contentworkflow"],
+    tone: opts.tone,
+    length: opts.length,
+  };
+}
+
+function ExtendedCaptions() {
+  const navigate = useNavigate();
+  const pressable = "transition active:translate-y-[1px] active:scale-[0.98]";
+
+  const selectedAssetIds = usePrototypeStore((state) => state.selectedAssetIds);
+  const selectedExtendedAssetIds = usePrototypeStore((state) => state.selectedExtendedAssetIds);
+  const extendedCaptions = usePrototypeStore((state) => state.extendedCaptions);
+  const getAssetById = usePrototypeStore((state) => state.getAssetById);
+  const setExtendedCaption = usePrototypeStore((state) => state.setExtendedCaption);
+
+  const [activeWeek, setActiveWeek] = useState<ExtendedCaptionsWeek>("week-1");
+  const [activeSlotIndex, setActiveSlotIndex] = useState(0);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const extendedItems = useMemo(() => {
+    const selectedExtendedItems = selectedExtendedAssetIds
+      .map((id) => getAssetById(id))
+      .filter((asset): asset is Asset => Boolean(asset))
+      .slice(0, 18);
+    const fallbackExtendedItems = selectedAssetIds
+      .map((id) => getAssetById(id))
+      .filter((asset): asset is Asset => Boolean(asset))
+      .slice(0, 18);
+
+    return selectedExtendedItems.length === 18 ? selectedExtendedItems : fallbackExtendedItems;
+  }, [getAssetById, selectedAssetIds, selectedExtendedAssetIds]);
+
+  const slots = useMemo(() => buildPackSlots("extended-pack"), []);
+  const splitItems = useMemo(() => splitSlotsByWeek(extendedItems), [extendedItems]);
+  const splitPackSlots = useMemo(() => splitSlotsByWeek(slots), [slots]);
+  const activeWeekStart = activeWeek === "week-1" ? 0 : 9;
+  const activeWeekItems = activeWeek === "week-1" ? splitItems.week1 : splitItems.week2;
+  const activeWeekSlots = activeWeek === "week-1" ? splitPackSlots.week1 : splitPackSlots.week2;
+  const activeAsset = extendedItems[activeSlotIndex];
+  const activeSlot = slots[activeSlotIndex] ?? slots[0];
+  const activeDraft = activeAsset ? extendedCaptions[activeAsset.id] : undefined;
+  const activeLabel = `${activeSlot.weekLabel} \u00B7 Post #${activeSlot.postNumber}`;
+  const fallbackDraft = useMemo(
+    () =>
+      buildExtendedFallbackDraft({
+        asset: activeAsset,
+        postNumber: activeSlot.postNumber,
+        weekIndex: activeSlot.weekIndex,
+        tone: "Minimal",
+        length: "Short",
+      }),
+    [activeAsset, activeSlot.postNumber, activeSlot.weekIndex]
+  );
+  const currentDraft = activeDraft ?? fallbackDraft;
+  const tone = currentDraft.tone;
+  const length = currentDraft.length;
+  const editableCaption = currentDraft.caption;
+  const editableCta = currentDraft.cta;
+  const editableTags = currentDraft.hashtags.join(" ");
+
+  const selectWeek = (week: ExtendedCaptionsWeek) => {
+    setActiveWeek(week);
+    setActiveSlotIndex(week === "week-1" ? 0 : 9);
+  };
+
+  const flashCopied = (key: string) => {
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 900);
+  };
+
+  const persistExtendedDraft = (next?: Partial<ExtendedCaptionDraft> & { tagText?: string }) => {
+    if (!activeAsset) return;
+
+    const tagText = next?.tagText ?? editableTags;
+    setExtendedCaption(activeAsset.id, {
+      caption: next?.caption ?? editableCaption,
+      cta: next?.cta ?? editableCta,
+      hashtags: next?.hashtags ?? normalizeHashtags(tagText),
+      tone: next?.tone ?? tone,
+      length: next?.length ?? length,
+    });
+  };
+
+  const generateActiveCaption = () => {
+    if (!activeAsset) return;
+    const nextDraft = buildExtendedFallbackDraft({
+      asset: activeAsset,
+      postNumber: activeSlot.postNumber,
+      weekIndex: activeSlot.weekIndex,
+      tone,
+      length,
+    });
+
+    setExtendedCaption(activeAsset.id, nextDraft);
+  };
+
+  const copyCaption = async () => {
+    const ok = await safeCopy(editableCaption);
+    if (ok) flashCopied("caption");
+  };
+
+  const copyHashtags = async () => {
+    const ok = await safeCopy(normalizeHashtags(editableTags).join(" "));
+    if (ok) flashCopied("hashtags");
+  };
+
+  if (extendedItems.length < 18) {
+    return (
+      <FlowEmptyState
+        title="Extended Captions needs 18 planned posts."
+        desc="Return to Planner or Smart Mix to prepare Week 1 + Week 2."
+        primaryLabel="Back to Planner"
+        primaryTo="/prototype/planner"
+        secondaryLabel="Back to Smart Mix"
+        secondaryTo="/prototype/smart-mix"
+      />
+    );
+  }
+
+  return (
+    <div className="co-workspace-page co-scene co-captions-page co-captions-composer-page">
+      <header className="co-captions-header co-scene-header co-composer-scene-header flex shrink-0 flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-base text-[color:var(--co-text)]">Captions</div>
+          <div className="mt-1 text-sm text-[color:var(--co-muted)]">
+            Write captions for Week 1 + Week 2.
+          </div>
+          <div className="co-extended-caption-badges" aria-label="Extended captions status">
+            <span>Extended Pack</span>
+            <span>18 posts</span>
+            <span>Caption draft</span>
+            <span>Pro preview</span>
+          </div>
+        </div>
+
+        <div className="ml-auto flex w-full flex-wrap justify-end gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={() => navigate("/prototype/planner")}
+            className={[
+              "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+              pressable,
+            ].join(" ")}
+          >
+            Back to Planner
+          </button>
+          <button
+            type="button"
+            disabled
+            title="18-post Export support comes next."
+            className="flex-1 cursor-not-allowed rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-muted)] opacity-75 sm:flex-none"
+          >
+            Extended Export next
+          </button>
+        </div>
+      </header>
+
+      <div className="co-caption-workspace co-caption-workspace--extended">
+        <section className="co-caption-visual-stage co-caption-visual-card co-extended-caption-visual-card">
+          <div className="co-extended-caption-week-switch" role="tablist" aria-label="Caption week selector">
+            {[
+              { id: "week-1" as const, label: "Week 1", count: splitItems.week1.length },
+              { id: "week-2" as const, label: "Week 2", count: splitItems.week2.length },
+            ].map((week) => (
+              <button
+                key={week.id}
+                type="button"
+                role="tab"
+                aria-selected={activeWeek === week.id}
+                onClick={() => selectWeek(week.id)}
+                className={activeWeek === week.id ? "is-active" : ""}
+              >
+                <span>{week.label}</span>
+                <strong>{week.count} posts</strong>
+              </button>
+            ))}
+          </div>
+
+          <div className="co-caption-week-head">
+            <div>
+              <div className="text-sm text-[color:var(--co-text)]">Post selector</div>
+              <div className="text-xs text-[color:var(--co-muted)]">Choose one post to write right now.</div>
+            </div>
+            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-xs text-[color:var(--co-muted)]">
+              {activeLabel}
+            </div>
+          </div>
+
+          <div className="co-extended-caption-post-grid" aria-label={`${activeSlot.weekLabel} post selector`}>
+            {activeWeekItems.map((asset, index) => {
+              const absoluteIndex = activeWeekStart + index;
+              const slot = activeWeekSlots[index];
+              const isActive = absoluteIndex === activeSlotIndex;
+
+              return (
+                <button
+                  key={`${asset.id}-${slot.postNumber}`}
+                  type="button"
+                  onClick={() => setActiveSlotIndex(absoluteIndex)}
+                  className={[
+                    "co-extended-caption-post-tile",
+                    isActive ? "co-extended-caption-post-tile--active" : "",
+                    pressable,
+                  ].join(" ")}
+                >
+                  <img src={asset.thumbUrl} alt="" loading="lazy" decoding="async" />
+                  <span>
+                    {slot.dayLabel} / {formatPostNumber(slot.postNumber)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="co-extended-caption-selected-copy">
+            <div>
+              <div className="text-sm text-[color:var(--co-text)]">Selected post</div>
+              <div className="mt-1 text-xs text-[color:var(--co-muted)]">{activeLabel}</div>
+            </div>
+          </div>
+
+          <div className="co-caption-selected-frame co-extended-caption-selected-frame">
+            {activeAsset ? (
+              <>
+                <img
+                  src={activeAsset.thumbUrl}
+                  alt={activeAsset.id}
+                  className="co-caption-selected-image"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)]/82 px-3 py-1 text-xs text-[color:var(--co-text)]/86 backdrop-blur">
+                  {activeLabel}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="co-caption-composer co-caption-editorial-panel">
+          <div className="co-caption-panel-header flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-base text-[color:var(--co-text)]">Caption Composer</div>
+              <div className="mt-1 text-sm text-[color:var(--co-muted)]">{activeLabel}</div>
+            </div>
+            <div className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-3 py-1.5 text-[11px] text-[color:var(--co-muted)]">
+              Saved
+            </div>
+          </div>
+
+          <div className="co-caption-settings mt-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-1.5">
+                <span className="px-1 text-[11px] text-[color:var(--co-muted)]">Tone</span>
+                {CAPTION_TONES.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => {
+                      persistExtendedDraft({ tone: item });
+                    }}
+                    className={[
+                      "rounded-full border px-2.5 py-1 text-[11px] transition sm:px-3",
+                      tone === item
+                        ? "border-[color:var(--co-border)] bg-[color:var(--co-surface-active)] text-[color:var(--co-text)]"
+                        : "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] hover:opacity-90",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                      pressable,
+                    ].join(" ")}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2 py-1.5">
+                <span className="px-1 text-[11px] text-[color:var(--co-muted)]">Length</span>
+                {CAPTION_LENGTHS.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => {
+                      persistExtendedDraft({ length: item });
+                    }}
+                    className={[
+                      "rounded-full border px-2.5 py-1 text-[11px] transition sm:px-3",
+                      length === item
+                        ? "border-[color:var(--co-border)] bg-[color:var(--co-surface-active)] text-[color:var(--co-text)]"
+                        : "border-[color:var(--co-border)] bg-[color:var(--co-surface)] text-[color:var(--co-muted)] hover:opacity-90",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                      pressable,
+                    ].join(" ")}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="co-caption-draft-sheet">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+              Caption
+            </div>
+            <textarea
+              value={editableCaption}
+              onChange={(event) => {
+                persistExtendedDraft({ caption: event.target.value });
+              }}
+              className="co-caption-draft-textarea"
+              placeholder={`Post #${activeSlot.postNumber}. Clarity over noise.`}
+              rows={5}
+            />
+          </div>
+
+          <div className="co-caption-output-details">
+            <div className="co-caption-output-card">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                CTA line
+              </div>
+              <textarea
+                value={editableCta}
+                onChange={(event) => {
+                  persistExtendedDraft({ cta: event.target.value });
+                }}
+                className="co-caption-output-text"
+                placeholder="Save this for your next content batch."
+                rows={2}
+              />
+            </div>
+
+            <div className="co-caption-output-card">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                Hashtags
+              </div>
+              <textarea
+                value={editableTags}
+                onChange={(event) => {
+                  persistExtendedDraft({ tagText: event.target.value });
+                }}
+                className="co-caption-output-text"
+                placeholder="#creatorops #weekpack #contentworkflow"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="co-caption-direction-row">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--co-muted)]">
+                One-post generation
+              </div>
+              <div className="mt-1 text-xs leading-5 text-[color:var(--co-muted)]">
+                Generates only {activeLabel}; the other drafts stay untouched.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={generateActiveCaption}
+              className={["co-caption-generate-button", pressable].join(" ")}
+            >
+              Generate caption
+            </button>
+          </div>
+
+          <div className="co-caption-composer-footer">
+            <p className="min-w-0 text-xs leading-5 text-[color:var(--co-muted)]">
+              18-post Export support comes next.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={copyCaption}
+                className={[
+                  "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2.5 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
+              >
+                {copiedKey === "caption" ? "Copied" : "Copy caption"}
+              </button>
+              <button
+                type="button"
+                onClick={copyHashtags}
+                className={[
+                  "flex-1 rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-4 py-2.5 text-sm text-[color:var(--co-text)] hover:opacity-90 sm:flex-none",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
+              >
+                {copiedKey === "hashtags" ? "Copied" : "Copy tags"}
+              </button>
+              <button
+                type="button"
+                disabled
+                title="18-post Export support comes next."
+                className="flex-1 cursor-not-allowed rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2.5 text-sm text-[color:var(--co-muted)] opacity-75 sm:flex-none"
+              >
+                Extended Export next
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 export default function Captions() {
+  const packMode = usePrototypeStore((state) => state.packMode);
+  return packMode === "extended-pack" ? <ExtendedCaptions /> : <WeekPackCaptions />;
+}
+
+function WeekPackCaptions() {
   const navigate = useNavigate();
   const pressable = "transition active:translate-y-[1px] active:scale-[0.98]";
 
@@ -129,7 +592,7 @@ export default function Captions() {
     setEditableCta(cta);
     setEditableTags(captions.hashtags.join(" "));
     setGenerationSource(captions.source ?? "local");
-  }, [captions.source, cta, hashtagKey, primaryCaption]);
+  }, [captions.hashtags, captions.source, cta, hashtagKey, primaryCaption]);
 
   const flashCopied = (key: string) => {
     setCopiedKey(key);
