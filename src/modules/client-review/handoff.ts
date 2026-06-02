@@ -2,6 +2,7 @@ export type ClientReviewHandoffItem = {
   id: string;
   src: string;
   label: string;
+  weekIndex?: 1 | 2;
   day?: string;
   filename?: string;
   caption?: string;
@@ -12,6 +13,8 @@ export type ClientReviewHandoffItem = {
 export type ClientReviewHandoffPayload = {
   version: "v1";
   source: "export-week-pack";
+  packMode?: "week-pack" | "extended-pack";
+  postCount?: 9 | 18;
   packTitle: string;
   createdAt: string;
   preparedBy: string;

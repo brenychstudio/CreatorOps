@@ -3,11 +3,13 @@ import JSZip from "jszip";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FlowEmptyState from "../../components/prototype/FlowEmptyState";
+import type { Asset } from "../../data/mockAssets";
 import { writeClientReviewHandoff } from "../../modules/client-review/handoff";
 import type { ClientReviewHandoffItem } from "../../modules/client-review/handoff";
 import { writeMediaConverterHandoff } from "../../modules/media-converter/core/handoff";
 import type { MediaConverterHandoffItem } from "../../modules/media-converter/core/handoff";
-import { usePrototypeStore } from "../../store/prototypeStore";
+import { buildPackSlots, splitSlotsByWeek } from "../../modules/prototype/packPlanning";
+import { usePrototypeStore, type ExtendedCaptionDraft, type Length, type Tone } from "../../store/prototypeStore";
 
 type CreatorOpsImportMeta = ImportMeta & {
   env?: {
@@ -99,6 +101,14 @@ function csvEscape(v: string) {
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const PACK_CONTENTS = ["images/01–09", "captions.txt", "hashtags.txt", "captions.csv", "manifest.json", "README"];
+const EXTENDED_PACK_CONTENTS = [
+  "images/01-18",
+  "captions.txt",
+  "hashtags.txt",
+  "captions.csv",
+  "manifest.json",
+  "README",
+];
 
 type ExportTile = {
   index: number; // 0..8 (grid order)
@@ -110,7 +120,756 @@ type ExportTile = {
   file: string | null; // images/01.png ...
 };
 
+type ExtendedExportView = "all" | "week-1" | "week-2";
+
+type ExtendedExportPost = {
+  index: number;
+  postNumber: number;
+  weekIndex: 1 | 2;
+  weekLabel: "Week 1" | "Week 2";
+  dayLabel: string;
+  asset: Asset;
+  draft: ExtendedCaptionDraft;
+  hasSavedDraft: boolean;
+};
+
+function formatPostNumber(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function buildExtendedFallbackDraft(opts: {
+  asset?: Asset;
+  postNumber: number;
+  weekIndex: 1 | 2;
+  tone: Tone;
+  length: Length;
+}): ExtendedCaptionDraft {
+  return {
+    caption: `Post #${opts.postNumber}. Caption draft included in Export Pack.`,
+    cta: "Save this for your next content batch.",
+    hashtags: ["#creatorops", "#weekpack", "#contentworkflow"],
+    tone: opts.tone,
+    length: opts.length,
+  };
+}
+
+function buildExtendedPostText(post: ExtendedExportPost) {
+  const tags = post.draft.hashtags.join(" ");
+  return [
+    `${post.weekLabel} / Post #${formatPostNumber(post.postNumber)} / ${post.dayLabel}`,
+    "",
+    post.draft.caption,
+    "",
+    `CTA: ${post.draft.cta || "-"}`,
+    `Hashtags: ${tags || "-"}`,
+  ].join("\n");
+}
+
+function buildExtendedPlainText(posts: ExtendedExportPost[]) {
+  const lines: string[] = [];
+  lines.push("CreatorOps Extended Pack Captions");
+  lines.push("18 ordered posts");
+  lines.push("");
+
+  for (const week of [1, 2] as const) {
+    lines.push(`Week ${week}`);
+    lines.push("");
+
+    posts
+      .filter((post) => post.weekIndex === week)
+      .forEach((post) => {
+        lines.push(buildExtendedPostText(post));
+        lines.push("");
+        lines.push("---");
+        lines.push("");
+      });
+  }
+
+  return lines.join("\n").trim();
+}
+
+function buildExtendedCsvText(posts: Array<ExtendedExportPost & { file?: string | null }>) {
+  const lines: string[] = [];
+  lines.push(["post_number", "week", "day", "filename", "caption", "cta", "hashtags"].join(","));
+
+  posts.forEach((post) => {
+    const filename = post.file ? post.file.replace(/^images\//, "") : getExtendedZipFilename(post);
+
+    lines.push(
+      [
+        csvEscape(formatPostNumber(post.postNumber)),
+        csvEscape(post.weekLabel),
+        csvEscape(post.dayLabel),
+        csvEscape(filename),
+        csvEscape(post.draft.caption),
+        csvEscape(post.draft.cta),
+        csvEscape(post.draft.hashtags.join(" ")),
+      ].join(",")
+    );
+  });
+
+  return lines.join("\n");
+}
+
+function getExtendedPostExtension(post: ExtendedExportPost) {
+  const extension = post.asset.file?.type ? extFromMime(post.asset.file.type) : extFromPath(post.asset.thumbUrl);
+  return ["jpg", "png", "webp"].includes(extension) ? extension : "jpg";
+}
+
+function getExtendedZipFilename(post: ExtendedExportPost) {
+  return `${formatPostNumber(post.postNumber)}.${getExtendedPostExtension(post)}`;
+}
+
+function getExtendedHandoffFilename(post: ExtendedExportPost) {
+  return `extended-pack-01-${formatPostNumber(post.postNumber)}.${getExtendedPostExtension(post)}`;
+}
+
+function ExtendedExport() {
+  const navigate = useNavigate();
+  const pressable = "transition active:translate-y-[1px] active:scale-[0.98]";
+
+  const selectedAssetIds = usePrototypeStore((s) => s.selectedAssetIds);
+  const selectedExtendedAssetIds = usePrototypeStore((s) => s.selectedExtendedAssetIds);
+  const selectedExtendedCandidateId = usePrototypeStore((s) => s.selectedExtendedCandidateId);
+  const extendedCaptions = usePrototypeStore((s) => s.extendedCaptions);
+  const mixSeed = usePrototypeStore((s) => s.mixSeed);
+  const getAssetById = usePrototypeStore((s) => s.getAssetById);
+  const clearUploads = usePrototypeStore((s) => s.clearUploads);
+  const clearSelection = usePrototypeStore((s) => s.clearSelection);
+
+  const [view, setView] = useState<ExtendedExportView>("all");
+  const [isZipping, setIsZipping] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+  const [clientReviewError, setClientReviewError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const extendedItems = useMemo(() => {
+    const selectedExtendedItems = selectedExtendedAssetIds
+      .map((id) => getAssetById(id))
+      .filter((asset): asset is Asset => Boolean(asset))
+      .slice(0, 18);
+    const fallbackItems = selectedAssetIds
+      .map((id) => getAssetById(id))
+      .filter((asset): asset is Asset => Boolean(asset))
+      .slice(0, 18);
+
+    return selectedExtendedItems.length === 18 ? selectedExtendedItems : fallbackItems;
+  }, [getAssetById, selectedAssetIds, selectedExtendedAssetIds]);
+
+  const slots = useMemo(() => buildPackSlots("extended-pack"), []);
+  const posts = useMemo<ExtendedExportPost[]>(() => {
+    return slots.flatMap((slot, index) => {
+      const asset = extendedItems[index];
+      if (!asset) return [];
+
+      const savedDraft = extendedCaptions[asset.id];
+      const draft =
+        savedDraft ??
+        buildExtendedFallbackDraft({
+          asset,
+          postNumber: slot.postNumber,
+          weekIndex: slot.weekIndex,
+          tone: "Minimal",
+          length: "Short",
+        });
+
+      return [
+        {
+          index,
+          postNumber: slot.postNumber,
+          weekIndex: slot.weekIndex,
+          weekLabel: slot.weekLabel,
+          dayLabel: slot.dayLabel,
+          asset,
+          draft,
+          hasSavedDraft: Boolean(savedDraft),
+        },
+      ];
+    });
+  }, [extendedCaptions, extendedItems, slots]);
+
+  const { week1: week1Posts, week2: week2Posts } = useMemo(() => splitSlotsByWeek(posts), [posts]);
+  const visibleWeekPosts = view === "week-1" ? week1Posts : view === "week-2" ? week2Posts : [];
+  const draftsSavedCount = posts.filter((post) => post.hasSavedDraft).length;
+  const extendedText = useMemo(() => buildExtendedPlainText(posts), [posts]);
+  const extendedCsvText = useMemo(() => buildExtendedCsvText(posts), [posts]);
+
+  const flashCopied = (key: string) => {
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 900);
+  };
+
+  const copyExtendedText = async () => {
+    const ok = await safeCopy(extendedText);
+    if (ok) flashCopied("pack");
+  };
+
+  const copyExtendedCsv = async () => {
+    const ok = await safeCopy(extendedCsvText);
+    if (ok) flashCopied("csv");
+  };
+
+  const copyPost = async (post: ExtendedExportPost) => {
+    const ok = await safeCopy(buildExtendedPostText(post));
+    if (ok) flashCopied(`post-${post.postNumber}`);
+  };
+
+  const downloadExtendedText = () => {
+    downloadBlob(
+      `creatorops-extended-pack_${tsStamp()}.txt`,
+      new Blob([extendedText || "-"], { type: "text/plain;charset=utf-8" })
+    );
+  };
+
+  const buildExtendedMediaConverterHandoffPayload = () => {
+    const items = posts.map((post): MediaConverterHandoffItem => {
+      const filename = getExtendedHandoffFilename(post);
+      const extension = filename.split(".").pop() ?? "jpg";
+
+      return {
+        id: post.asset.id || `extended-export-${formatPostNumber(post.postNumber)}`,
+        src: post.asset.thumbUrl,
+        filename,
+        label: `Post #${post.postNumber}`,
+        mimeHint: post.asset.file?.type ? mimeHintFromExtension(extension) : undefined,
+      };
+    });
+
+    return {
+      version: "v1" as const,
+      source: "export-week-pack" as const,
+      packTitle: "Extended Pack 01",
+      createdAt: new Date().toISOString(),
+      presetId: "website" as const,
+      items,
+    };
+  };
+
+  const handleOpenExtendedMediaConverter = () => {
+    setHandoffError(null);
+
+    try {
+      const payload = buildExtendedMediaConverterHandoffPayload();
+      if (payload.items.length !== 18) {
+        setHandoffError("Could not prepare 18 images for Media Converter.");
+        return;
+      }
+
+      writeMediaConverterHandoff(payload);
+      navigate("/prototype/media-converter?source=export");
+    } catch {
+      setHandoffError("Could not prepare Media Converter handoff.");
+    }
+  };
+
+  const buildExtendedClientReviewHandoffPayload = () => {
+    const items = posts.map((post): ClientReviewHandoffItem => ({
+      id: post.asset.id || `extended-review-${formatPostNumber(post.postNumber)}`,
+      src: post.asset.thumbUrl,
+      label: `Post #${post.postNumber}`,
+      weekIndex: post.weekIndex,
+      day: post.dayLabel,
+      filename: getExtendedHandoffFilename(post),
+      caption: post.draft.caption,
+      cta: post.draft.cta,
+      hashtags: post.draft.hashtags,
+    }));
+
+    return {
+      version: "v1" as const,
+      source: "export-week-pack" as const,
+      packMode: "extended-pack" as const,
+      postCount: 18 as const,
+      packTitle: "Extended Pack 01",
+      createdAt: new Date().toISOString(),
+      preparedBy: "CreatorOps",
+      items,
+    };
+  };
+
+  const handleOpenExtendedClientReview = () => {
+    setClientReviewError(null);
+
+    try {
+      const payload = buildExtendedClientReviewHandoffPayload();
+      if (payload.items.length !== 18) {
+        setClientReviewError("Could not prepare 18 posts for Client Review.");
+        return;
+      }
+
+      writeClientReviewHandoff(payload);
+      navigate("/prototype/client-review?source=export");
+    } catch {
+      setClientReviewError("Could not prepare Client Review.");
+    }
+  };
+
+  const openExtendedProfileHandoff = () => {
+    navigate("/prototype/bio-builder?source=export", {
+      state: {
+        source: "export",
+        useCurrentExportPack: true,
+        profilePreviewIds: week1Posts.map((post) => post.asset.id),
+      },
+    });
+  };
+
+  const buildExtendedManifest = (exportPosts: Array<ExtendedExportPost & { file?: string | null }>) => ({
+    app: "CreatorOps",
+    packType: "extended-pack",
+    postCount: 18,
+    weeks: 2,
+    version: "beta",
+    appVersion: APP_VERSION,
+    buildTime: BUILD_TIME || null,
+    generatedAt: new Date().toISOString(),
+    seed: mixSeed ?? null,
+    selection: {
+      selectedAssetIds: selectedAssetIds.slice(),
+      selectedExtendedAssetIds: selectedExtendedAssetIds.slice(0, 18),
+      selectedExtendedCandidateId: selectedExtendedCandidateId ?? null,
+      usedInExtendedPack: exportPosts.map((post) => post.asset.id),
+    },
+    items: exportPosts.map((post) => ({
+      postNumber: post.postNumber,
+      weekIndex: post.weekIndex,
+      weekSlotIndex: post.index % 9,
+      weekLabel: post.weekLabel,
+      dayLabel: post.dayLabel,
+      filename: post.file ? post.file.replace(/^images\//, "") : getExtendedZipFilename(post),
+      assetId: post.asset.id,
+      series: post.asset.series,
+      ratio: post.asset.ratio,
+      source: post.asset.source,
+      caption: post.draft.caption,
+      cta: post.draft.cta,
+      hashtags: post.draft.hashtags,
+      tone: post.draft.tone,
+      length: post.draft.length,
+      hasSavedDraft: post.hasSavedDraft,
+    })),
+    files: {
+      captionsTxt: "captions.txt",
+      hashtagsTxt: "hashtags.txt",
+      captionsCsv: "captions.csv",
+      manifest: "manifest.json",
+      imagesDir: "images/",
+    },
+  });
+
+  const onDownloadExtendedZip = async () => {
+    if (isZipping) return;
+
+    setZipError(null);
+    setIsZipping(true);
+
+    try {
+      const zip = new JSZip();
+      const exportPosts = posts.map((post) => ({ ...post, file: null as string | null }));
+
+      zip.file("captions.txt", extendedText || "-");
+      zip.file(
+        "hashtags.txt",
+        exportPosts
+          .map((post) => `Post #${formatPostNumber(post.postNumber)}: ${post.draft.hashtags.join(" ") || "-"}`)
+          .join("\n")
+      );
+
+      const imgFolder = zip.folder("images");
+      if (imgFolder) {
+        for (let i = 0; i < exportPosts.length; i++) {
+          const post = exportPosts[i]!;
+          const order = formatPostNumber(i + 1);
+          const file: File | undefined = post.asset.file;
+
+          if (file) {
+            const ext = extFromMime(file.type) || extFromPath(file.name);
+            const name = `${order}.${ext}`;
+            imgFolder.file(name, file);
+            post.file = `images/${name}`;
+            continue;
+          }
+
+          const url = String(post.asset.thumbUrl || "");
+          if (!url) continue;
+
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`fetch ${res.status}`);
+            const blob = await res.blob();
+            const ext = extFromMime(blob.type) || extFromPath(url);
+            const name = `${order}.${ext}`;
+            imgFolder.file(name, blob);
+            post.file = `images/${name}`;
+          } catch {
+            // Keep manifest and text export even if a preview image cannot be fetched.
+          }
+        }
+      }
+
+      zip.file("captions.csv", buildExtendedCsvText(exportPosts));
+      zip.file("manifest.json", JSON.stringify(buildExtendedManifest(exportPosts), null, 2));
+      zip.file(
+        "README.txt",
+        [
+          "CreatorOps Extended Export Pack",
+          `App version: ${APP_VERSION}${BUILD_TIME ? ` (${BUILD_TIME})` : ""}`,
+          "",
+          "This Extended Pack contains 18 ordered posts for Week 1 + Week 2.",
+          "",
+          "What's inside:",
+          "- images/01..18.* -> Week 1 + Week 2 in feed order",
+          "- captions.txt    -> per-post captions, CTA lines, and hashtags",
+          "- hashtags.txt    -> per-post hashtag lines",
+          "- captions.csv    -> ready-to-copy table",
+          "- manifest.json   -> post mapping, asset ids, draft status",
+          "",
+          "How to post:",
+          "1) Open images/ and post in filename order from 01 to 18.",
+          "2) Use captions.csv or captions.txt for the matching copy.",
+          "",
+          "Notes:",
+          "- Draft status is recorded as hasSavedDraft in manifest.json.",
+          "- If an image file is missing, it could not be fetched at export time.",
+        ].join("\n")
+      );
+
+      const blob = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      });
+      const vSafe = String(APP_VERSION || "dev").replace(/[^a-zA-Z0-9._-]/g, "-");
+      downloadBlob(`creatorops-${vSafe}_extended-pack_${tsStamp()}.zip`, blob);
+    } catch (e: unknown) {
+      const msg = e instanceof Error && e.message ? e.message : "Failed to build extended zip.";
+      setZipError(msg);
+    } finally {
+      setIsZipping(false);
+    }
+  };
+
+  const renderExtendedTile = (post: ExtendedExportPost) => (
+    <div key={`${post.asset.id}-${post.postNumber}`} className="co-extended-export-tile">
+      <img src={post.asset.thumbUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+      <span className="co-extended-export-post-badge">{formatPostNumber(post.postNumber)}</span>
+      <span className="co-extended-export-week-badge">
+        {post.dayLabel} · {formatPostNumber(post.postNumber)}
+      </span>
+    </div>
+  );
+
+  const renderWeekPreview = (label: "Week 1" | "Week 2", items: ExtendedExportPost[]) => (
+    <section key={label} className="co-extended-export-week-section">
+      <div className="co-extended-export-week-head">
+        <div>
+          <div className="text-sm font-medium text-[color:var(--co-text)]">{label}</div>
+          <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+            Posts {label === "Week 1" ? "01-09" : "10-18"}
+          </div>
+        </div>
+        <span>{items.length}/9</span>
+      </div>
+      <div className="co-extended-export-grid co-extended-export-grid--week">
+        {items.map(renderExtendedTile)}
+      </div>
+    </section>
+  );
+
+  if (extendedItems.length < 18 || posts.length < 18) {
+    return (
+      <FlowEmptyState
+        title="Extended Export needs 18 planned posts."
+        desc="Return to Planner or Smart Mix to prepare Week 1 + Week 2."
+        primaryLabel="Back to Planner"
+        primaryTo="/prototype/planner"
+        secondaryLabel="Back to Smart Mix"
+        secondaryTo="/prototype/smart-mix"
+      />
+    );
+  }
+
+  return (
+    <div className="co-workspace-page co-scene co-completion-scene co-export-page co-extended-export-page">
+      <div className="co-scene-header co-export-scene-header flex shrink-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-base text-[color:var(--co-text)]">Export Pack Ready</div>
+          <p className="mt-1 max-w-[44rem] text-sm leading-5 text-[color:var(--co-muted)]">
+            Your Extended Pack is ordered, captioned, and ready to download.
+          </p>
+
+          <div className="mt-3 hidden flex-wrap gap-2 sm:flex">
+            {[
+              "Extended Pack",
+              "18 posts",
+              "Week 1 + Week 2",
+              "captions",
+              "manifest",
+            ].map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-[color:var(--co-border)] bg-[color:var(--co-surface)] px-2.5 py-1 text-[11px] text-[color:var(--co-muted)]"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="hidden flex-wrap gap-2 sm:flex sm:w-auto sm:justify-end">
+          <button
+            type="button"
+            onClick={() => navigate("/prototype/captions")}
+            className={[
+              "flex-1 rounded-full border border-[color:var(--co-border-soft)] bg-transparent px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface)] sm:flex-none",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+              pressable,
+            ].join(" ")}
+          >
+            Back to Captions
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              clearUploads();
+              clearSelection();
+              navigate("/", { replace: false });
+            }}
+            className={[
+              "flex-1 rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] sm:flex-none",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+              pressable,
+            ].join(" ")}
+          >
+            Home
+          </button>
+        </div>
+      </div>
+
+      <div className="co-export-workbench co-extended-export-workbench co-scrollbar">
+        <section className="co-export-preview-panel co-extended-export-preview-panel">
+          <div className="co-extended-export-topbar">
+            <div>
+              <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Final feed order</div>
+              <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">
+                {view === "all" ? "Final Extended Pack" : view === "week-1" ? "Week 1 posts" : "Week 2 posts"}
+              </div>
+            </div>
+            <div className="co-extended-export-view-tabs" role="tablist" aria-label="Extended export view">
+              {[
+                { id: "all" as const, label: "All 18" },
+                { id: "week-1" as const, label: "Week 1" },
+                { id: "week-2" as const, label: "Week 2" },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === item.id}
+                  onClick={() => setView(item.id)}
+                  className={view === item.id ? "is-active" : ""}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {view === "all" ? (
+            <div className="co-extended-export-week-stack co-scrollbar">
+              {renderWeekPreview("Week 1", week1Posts)}
+              {renderWeekPreview("Week 2", week2Posts)}
+            </div>
+          ) : (
+            <div className="co-extended-export-week-single">
+              {renderWeekPreview(view === "week-1" ? "Week 1" : "Week 2", visibleWeekPosts)}
+            </div>
+          )}
+        </section>
+
+        <aside className="co-export-action-panel co-extended-export-action-panel">
+          <div className="co-export-download-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Download pack</div>
+                <div className="mt-2 text-xl font-medium text-[color:var(--co-text)]">
+                  Extended ZIP ready
+                </div>
+                <p className="mt-3 max-w-[40ch] text-sm leading-6 text-[color:var(--co-muted)]">
+                  Includes ordered images, per-post captions, hashtags, CSV, manifest, and README.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onDownloadExtendedZip}
+                disabled={isZipping}
+                className={[
+                  "co-export-primary-action w-full hover:opacity-90",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                  isZipping ? "opacity-70 cursor-wait" : "",
+                ].join(" ")}
+              >
+                {isZipping ? "Building pack..." : "Download ZIP"}
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <div className="text-[11px] text-[color:var(--co-muted)]">Pack contents</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {EXTENDED_PACK_CONTENTS.map((item) => (
+                  <span key={item} className="co-export-file-chip">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={copyExtendedText}
+                className={["co-extended-export-mini-action", pressable].join(" ")}
+              >
+                {copiedKey === "pack" ? "Copied" : "Copy pack"}
+              </button>
+              <button
+                type="button"
+                onClick={copyExtendedCsv}
+                className={["co-extended-export-mini-action", pressable].join(" ")}
+              >
+                {copiedKey === "csv" ? "Copied" : "Copy CSV"}
+              </button>
+              <button
+                type="button"
+                onClick={downloadExtendedText}
+                className={["co-extended-export-mini-action", pressable].join(" ")}
+              >
+                Download TXT
+              </button>
+            </div>
+
+            {zipError ? (
+              <div className="mt-4 rounded-xl border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] p-3 text-[11px] text-[color:var(--co-muted)]">
+                ZIP error: {zipError}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="co-export-secondary-card co-extended-export-handoff-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Format handoff</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Media Converter</div>
+                <p className="mt-2 max-w-[40ch] text-[12px] leading-5 text-[color:var(--co-muted)]">
+                  Send all 18 ordered images for final format conversion.
+                </p>
+                {handoffError ? (
+                  <p className="mt-2 text-[11px] leading-5 text-[color:var(--co-muted)]">{handoffError}</p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenExtendedMediaConverter}
+                className={["co-extended-export-row-action", pressable].join(" ")}
+              >
+                Open Media Converter
+              </button>
+            </div>
+          </div>
+
+          <div className="co-export-secondary-card co-extended-export-handoff-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Client review</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Extended Pack approval</div>
+                <p className="mt-2 max-w-[40ch] text-[12px] leading-5 text-[color:var(--co-muted)]">
+                  Preview Week 1, Week 2, or all 18 posts before approval.
+                </p>
+                {clientReviewError ? (
+                  <p className="mt-2 text-[11px] leading-5 text-[color:var(--co-muted)]">{clientReviewError}</p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenExtendedClientReview}
+                className={["co-extended-export-row-action", pressable].join(" ")}
+              >
+                Open Client Review
+              </button>
+            </div>
+          </div>
+
+          <div className="co-export-secondary-card co-extended-export-handoff-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Profile handoff</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Bio Builder</div>
+                <p className="mt-2 max-w-[40ch] text-[12px] leading-5 text-[color:var(--co-muted)]">
+                  Use the first 9 posts for the profile preview.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={openExtendedProfileHandoff}
+                className={["co-extended-export-row-action", pressable].join(" ")}
+              >
+                Open Profile Handoff
+              </button>
+            </div>
+          </div>
+
+          <div className="co-export-secondary-card co-extended-export-post-card">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Copy queue</div>
+                <div className="mt-1 text-sm font-medium text-[color:var(--co-text)]">Per-post handoff</div>
+              </div>
+              <div className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-3 py-1 text-[11px] text-[color:var(--co-muted)]">
+                {draftsSavedCount}/18 saved
+              </div>
+            </div>
+
+            <div className="co-extended-export-post-list co-scrollbar">
+              {posts.map((post) => (
+                <div key={`copy-${post.asset.id}-${post.postNumber}`} className="co-extended-export-post-row">
+                  <img src={post.asset.thumbUrl} alt="" draggable={false} loading="lazy" decoding="async" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-[color:var(--co-text)]">
+                      {post.weekLabel} / Post #{formatPostNumber(post.postNumber)}
+                    </div>
+                    <div className="mt-1 truncate text-[11px] text-[color:var(--co-muted)]">
+                      {post.draft.caption}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyPost(post)}
+                    className={["co-extended-export-row-action", pressable].join(" ")}
+                  >
+                    {copiedKey === `post-${post.postNumber}` ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 export default function Export() {
+  const packMode = usePrototypeStore((s) => s.packMode);
+  return packMode === "extended-pack" ? <ExtendedExport /> : <WeekPackExport />;
+}
+
+function WeekPackExport() {
   const navigate = useNavigate();
   const pressable = "transition active:translate-y-[1px] active:scale-[0.98]";
 

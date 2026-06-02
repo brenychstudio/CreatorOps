@@ -246,11 +246,14 @@ function ExtendedCaptions() {
           </button>
           <button
             type="button"
-            disabled
-            title="18-post Export support comes next."
-            className="flex-1 cursor-not-allowed rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2 text-sm text-[color:var(--co-muted)] opacity-75 sm:flex-none"
+            onClick={() => navigate("/prototype/export")}
+            className={[
+              "flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+              pressable,
+            ].join(" ")}
           >
-            Extended Export next
+            Open Extended Export
           </button>
         </div>
       </header>
@@ -466,7 +469,7 @@ function ExtendedCaptions() {
 
           <div className="co-caption-composer-footer">
             <p className="min-w-0 text-xs leading-5 text-[color:var(--co-muted)]">
-              18-post Export support comes next.
+              Ready for the 18-post export handoff.
             </p>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -494,11 +497,14 @@ function ExtendedCaptions() {
               </button>
               <button
                 type="button"
-                disabled
-                title="18-post Export support comes next."
-                className="flex-1 cursor-not-allowed rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-4 py-2.5 text-sm text-[color:var(--co-muted)] opacity-75 sm:flex-none"
+                onClick={() => navigate("/prototype/export")}
+                className={[
+                  "flex-1 rounded-full bg-[color:var(--co-text)] px-4 py-2.5 text-sm text-[color:var(--co-bg)] hover:opacity-90 sm:flex-none",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--co-border)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--co-bg)]",
+                  pressable,
+                ].join(" ")}
               >
-                Extended Export next
+                Open Extended Export
               </button>
             </div>
           </div>
