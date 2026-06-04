@@ -1,0 +1,933 @@
+﻿@layer components {
+  .bs-device-stage {
+    --bs-device-metal: rgba(35, 40, 49, 0.96);
+    --bs-device-metal-deep: rgba(12, 15, 20, 0.98);
+    --bs-device-metal-soft: rgba(96, 105, 120, 0.52);
+    --bs-device-rim: rgba(255, 255, 255, 0.16);
+    --bs-device-rim-soft: rgba(255, 255, 255, 0.075);
+    --bs-device-glass: rgba(4, 6, 10, 0.95);
+    --bs-device-shadow: rgba(0, 0, 0, 0.82);
+    position: relative;
+    display: grid;
+    width: 100%;
+    min-height: clamp(31rem, 42vw, 43rem);
+    place-items: center;
+    perspective: 1200px;
+    transform-style: preserve-3d;
+  }
+
+  .bs-device-stage--compact {
+    min-height: clamp(17rem, 26vw, 26rem);
+  }
+
+  .bs-device-stage--flat {
+    min-height: clamp(20rem, 28vw, 30rem);
+  }
+
+  .bs-device-stage--dark-premium {
+    color-scheme: dark;
+  }
+
+  .bs-device-stage--museum-tech {
+    --bs-device-metal: rgba(46, 50, 58, 0.94);
+    --bs-device-metal-soft: rgba(135, 142, 154, 0.42);
+  }
+
+  .bs-device-stage--product-spotlight {
+    --bs-device-rim: rgba(255, 255, 255, 0.22);
+    --bs-device-metal-soft: rgba(128, 138, 158, 0.58);
+  }
+
+  .bs-device-laptop {
+    position: relative;
+    z-index: 2;
+    width: min(96%, 820px);
+    transform-style: preserve-3d;
+  }
+
+  .bs-device-stage--compact .bs-device-laptop {
+    width: min(94%, 620px);
+  }
+
+  .bs-device-stage--subtle-float .bs-device-laptop {
+    animation: bs-device-float 9.8s ease-in-out infinite;
+  }
+
+  .bs-device-stage--open-settle .bs-device-laptop {
+    animation: bs-device-open-settle 1.45s cubic-bezier(0.18, 0.92, 0.22, 1) both;
+  }
+
+  .bs-device-laptop__screen-shell {
+    position: relative;
+    z-index: 4;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border: 1px solid var(--bs-device-rim);
+    border-radius: clamp(1rem, 1.7vw, 1.45rem);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.18), transparent 22%),
+      linear-gradient(145deg, rgba(94, 103, 118, 0.92), rgba(18, 22, 30, 0.98) 27%, rgba(7, 9, 14, 0.99));
+    box-shadow:
+      0 28px 100px -74px rgba(0, 0, 0, 0.95),
+      0 0 0 1px rgba(0, 0, 0, 0.62),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.84);
+  }
+
+  .bs-device-laptop__screen-shell::before {
+    content: "";
+    position: absolute;
+    top: clamp(0.32rem, 0.62vw, 0.52rem);
+    left: 50%;
+    z-index: 6;
+    width: clamp(0.28rem, 0.46vw, 0.38rem);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: rgba(82, 99, 130, 0.52);
+    box-shadow:
+      0 0 0 2px rgba(0, 0, 0, 0.48),
+      0 0 18px rgba(88, 112, 152, 0.2);
+    transform: translateX(-50%);
+  }
+
+  .bs-device-laptop__notch,
+  .bs-device-laptop__display-chin,
+  .bs-device-laptop__hinge-cap,
+  .bs-device-laptop__base-surface,
+  .bs-device-laptop__speaker,
+  .bs-device-laptop__base-edge {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .bs-device-laptop__notch,
+  .bs-device-laptop__display-chin,
+  .bs-device-laptop__base-surface,
+  .bs-device-laptop__speaker,
+  .bs-device-laptop__base-edge {
+    display: none;
+  }
+
+  .bs-device-laptop__bezel {
+    position: absolute;
+    inset: clamp(0.52rem, 0.9vw, 0.74rem);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    border-radius: clamp(0.72rem, 1.15vw, 0.96rem);
+    background:
+      radial-gradient(circle at 50% 36%, rgba(65, 77, 100, 0.18), transparent 45%),
+      var(--bs-device-glass);
+    box-shadow:
+      inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+      inset 0 1rem 3.4rem rgba(255, 255, 255, 0.028);
+  }
+
+  .bs-device-screen-slot {
+    position: absolute;
+    inset: clamp(0.32rem, 0.55vw, 0.45rem);
+    z-index: 2;
+    overflow: hidden;
+    border-radius: clamp(0.48rem, 0.8vw, 0.68rem);
+    background:
+      radial-gradient(circle at 50% 40%, rgba(96, 112, 142, 0.16), transparent 45%),
+      #05070b;
+  }
+
+  .bs-device-screen-slot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 0.98;
+    transform: translateZ(0);
+  }
+
+  .bs-device-screen-slot--fit-cover img {
+    object-fit: cover;
+  }
+
+  .bs-device-screen-slot--fit-contain img {
+    object-fit: contain;
+  }
+
+  .bs-device-screen-slot--tone-dark-ui img {
+    filter: saturate(1.02) contrast(1.08) brightness(0.94);
+  }
+
+  .bs-device-screen-slot--tone-light-ui img {
+    filter: saturate(0.95) contrast(1.02) brightness(0.96);
+  }
+
+  .bs-device-screen-slot--tone-auto img {
+    filter: saturate(0.98) contrast(1.03);
+  }
+
+  .bs-device-laptop__glass,
+  .bs-device-laptop__reflection,
+  .bs-device-laptop__glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .bs-device-laptop__glass {
+    z-index: 7;
+    background:
+      linear-gradient(107deg, rgba(255, 255, 255, 0.14), transparent 17%, transparent 74%, rgba(255, 255, 255, 0.055)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 32%);
+    mix-blend-mode: screen;
+    opacity: 0.34;
+  }
+
+  .bs-device-laptop__reflection {
+    z-index: 8;
+    width: 30%;
+    background: linear-gradient(104deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+    opacity: 0;
+    transform: translateX(-130%) skewX(-16deg);
+    animation: bs-device-sweep 9.4s ease-in-out infinite;
+  }
+
+  .bs-device-laptop__glow {
+    z-index: 1;
+    inset: 8%;
+    border-radius: 1rem;
+    background:
+      radial-gradient(circle at 54% 42%, rgba(122, 144, 178, 0.28), transparent 53%),
+      radial-gradient(circle at 16% 80%, rgba(61, 91, 126, 0.16), transparent 46%);
+    filter: blur(18px);
+    opacity: 0.48;
+    animation: bs-device-glow 9.6s ease-in-out infinite;
+  }
+
+  .bs-device-laptop__hinge {
+    position: relative;
+    z-index: 3;
+    width: 78%;
+    height: clamp(0.44rem, 0.78vw, 0.66rem);
+    margin: -0.12rem auto 0;
+    border-radius: 0 0 999px 999px;
+    background:
+      linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16) 18%, rgba(255, 255, 255, 0.055) 50%, rgba(255, 255, 255, 0.14) 82%, transparent),
+      linear-gradient(180deg, rgba(88, 96, 111, 0.84), rgba(16, 18, 24, 0.98));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      0 7px 18px rgba(0, 0, 0, 0.38);
+  }
+
+  .bs-device-laptop__base {
+    position: relative;
+    z-index: 1;
+    width: 111%;
+    height: clamp(3.9rem, 7.4vw, 6.2rem);
+    margin: -0.12rem -5.5% 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.105);
+    border-radius: 0.36rem 0.36rem clamp(1rem, 1.9vw, 1.65rem) clamp(1rem, 1.9vw, 1.65rem);
+    background:
+      radial-gradient(ellipse at 50% 5%, rgba(255, 255, 255, 0.18), transparent 31%),
+      linear-gradient(180deg, rgba(97, 105, 119, 0.76), rgba(40, 45, 55, 0.98) 52%, var(--bs-device-metal-deep));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -1rem 2.1rem rgba(0, 0, 0, 0.44),
+      0 44px 90px -64px rgba(0, 0, 0, 0.96);
+    transform: perspective(920px) rotateX(66deg);
+    transform-origin: top center;
+  }
+
+  .bs-device-laptop__base-surface {
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 52%);
+    opacity: 0.5;
+  }
+
+  .bs-device-laptop__keyboard-plane {
+    position: absolute;
+    top: 16%;
+    left: 18%;
+    width: 64%;
+    height: 30%;
+    border-radius: 0.48rem;
+    background:
+      linear-gradient(90deg, transparent 0 9%, rgba(255, 255, 255, 0.05) 9% 10%, transparent 10% 19%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.12));
+    background-size: 1.4rem 100%, 100% 100%;
+    opacity: 0.25;
+  }
+
+  .bs-device-laptop__trackpad {
+    position: absolute;
+    right: 36.5%;
+    bottom: 19%;
+    width: 27%;
+    height: 29%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.033);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 10px 24px -20px rgba(0, 0, 0, 0.8);
+  }
+
+  .bs-device-laptop__front-lip {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 18%;
+    border-top: 1px solid rgba(255, 255, 255, 0.075);
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.13), transparent 37%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.34));
+  }
+
+  .bs-device-laptop__shadow {
+    position: absolute;
+    right: 0;
+    bottom: -9%;
+    left: 0;
+    z-index: -1;
+    height: 22%;
+    border-radius: 999px;
+    background: radial-gradient(ellipse at center, var(--bs-device-shadow), transparent 70%);
+    filter: blur(19px);
+    opacity: 0.8;
+  }
+
+  .bs-device-companion {
+    position: absolute;
+    right: clamp(0.15rem, 2.6vw, 1.9rem);
+    bottom: clamp(0.7rem, 2.8vw, 2.4rem);
+    z-index: 8;
+    aspect-ratio: 9 / 16;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.135);
+    border-radius: clamp(0.92rem, 1.7vw, 1.28rem);
+    background: rgba(8, 10, 14, 0.92);
+    box-shadow:
+      0 32px 90px -60px rgba(0, 0, 0, 0.98),
+      inset 0 1px 0 rgba(255, 255, 255, 0.13);
+    filter: saturate(0.94) contrast(0.98) brightness(0.92);
+    opacity: 0.86;
+    transform: translate3d(0, 0, 44px) rotateZ(1.4deg);
+  }
+
+  .bs-device-companion--small {
+    width: min(11.5%, 7.6rem);
+    min-width: 5.8rem;
+  }
+
+  .bs-device-companion--floating {
+    width: min(16%, 10rem);
+    min-width: 7.4rem;
+  }
+
+  .bs-device-companion::before {
+    content: "";
+    position: absolute;
+    inset: 0.38rem;
+    z-index: 2;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .bs-device-companion img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .bs-device-stage--compact .bs-device-laptop__screen-shell {
+    border-radius: 0.98rem;
+  }
+
+  .bs-device-stage--compact .bs-device-laptop__bezel {
+    inset: 0.46rem;
+    border-radius: 0.68rem;
+  }
+
+  .bs-device-stage--compact .bs-device-screen-slot {
+    inset: 0.28rem;
+    border-radius: 0.48rem;
+  }
+
+  .bs-device-stage--compact .bs-device-laptop__base {
+    height: clamp(2.7rem, 5.4vw, 3.9rem);
+  }
+
+  .bs-device-stage--flat .bs-device-laptop {
+    transform: none;
+  }
+
+  .bs-device-stage--flat .bs-device-laptop__base {
+    opacity: 0.72;
+  }
+
+  .bs-device-stage--hero {
+    --bs-device-hero-metal-top: rgba(138, 148, 164, 0.92);
+    --bs-device-hero-metal-mid: rgba(47, 53, 64, 0.98);
+    --bs-device-hero-metal-dark: rgba(10, 12, 17, 0.99);
+    --bs-device-hero-cool-highlight: rgba(174, 193, 224, 0.28);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop {
+    width: min(108%, 1020px);
+    filter:
+      drop-shadow(0 54px 86px rgba(0, 0, 0, 0.6))
+      drop-shadow(0 10px 24px rgba(118, 142, 175, 0.1));
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__screen-shell {
+    aspect-ratio: 16 / 10;
+    overflow: visible;
+    border-color: rgba(215, 226, 244, 0.2);
+    border-radius: clamp(0.95rem, 1.35vw, 1.32rem);
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.22), transparent 8%, transparent 90%, rgba(255, 255, 255, 0.14)),
+      radial-gradient(ellipse at 50% -3%, rgba(236, 243, 255, 0.31), transparent 27%),
+      linear-gradient(180deg, rgba(160, 171, 190, 0.98), rgba(65, 72, 85, 0.98) 6%, rgba(16, 19, 25, 1) 17%, rgba(3, 5, 8, 1) 100%);
+    box-shadow:
+      0 42px 130px -86px rgba(0, 0, 0, 0.98),
+      0 0 0 1px rgba(0, 0, 0, 0.76),
+      0 0 0 2px rgba(255, 255, 255, 0.045),
+      inset 0 1px 0 rgba(255, 255, 255, 0.48),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.065),
+      inset 0 -20px 24px rgba(0, 0, 0, 0.88);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__screen-shell::before {
+    content: "";
+    position: absolute;
+    right: 0.18rem;
+    bottom: -0.42rem;
+    left: 0.18rem;
+    z-index: 0;
+    display: block;
+    height: 1.26rem;
+    border-radius: 0 0 clamp(0.9rem, 1.25vw, 1.2rem) clamp(0.9rem, 1.25vw, 1.2rem);
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.09), transparent 12%, transparent 88%, rgba(255, 255, 255, 0.065)),
+      linear-gradient(180deg, rgba(45, 52, 64, 0.68), rgba(5, 7, 12, 0.98));
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+      inset 0 -0.8rem 1.35rem rgba(0, 0, 0, 0.72);
+    opacity: 0.72;
+    pointer-events: none;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__screen-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0.16rem;
+    z-index: 1;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    border-radius: calc(clamp(0.95rem, 1.35vw, 1.32rem) - 0.16rem);
+    background:
+      linear-gradient(92deg, rgba(255, 255, 255, 0.1), transparent 13%, transparent 86%, rgba(255, 255, 255, 0.055)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 17%, transparent 80%, rgba(255, 255, 255, 0.028));
+    opacity: 0.58;
+    pointer-events: none;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__bezel {
+    z-index: 3;
+    inset: clamp(0.48rem, 0.78vw, 0.68rem);
+    overflow: hidden;
+    border-color: rgba(255, 255, 255, 0.045);
+    border-radius: clamp(0.62rem, 0.9vw, 0.82rem);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(68, 77, 98, 0.26), transparent 20%),
+      linear-gradient(180deg, rgba(7, 9, 13, 1), rgba(2, 3, 6, 1));
+    box-shadow:
+      inset 0 0 0 1px rgba(0, 0, 0, 0.94),
+      inset 0 0 0 2px rgba(255, 255, 255, 0.02),
+      inset 0 1rem 3rem rgba(255, 255, 255, 0.022);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__notch {
+    display: block;
+    top: clamp(0.48rem, 0.74vw, 0.62rem);
+    left: 50%;
+    z-index: 11;
+    width: clamp(3.15rem, 4.6vw, 4.15rem);
+    height: clamp(0.54rem, 0.78vw, 0.7rem);
+    border-radius: 0 0 0.54rem 0.54rem;
+    background: linear-gradient(180deg, rgba(1, 2, 5, 1), rgba(0, 1, 3, 1));
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.035),
+      0 9px 16px -14px rgba(0, 0, 0, 0.98),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.035);
+    transform: translateX(-50%);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__notch::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0.18rem;
+    width: 0.16rem;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: rgba(61, 79, 110, 0.46);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.64),
+      0 0 8px rgba(74, 101, 148, 0.18);
+    transform: translateX(-50%);
+  }
+
+  .bs-device-stage--hero .bs-device-screen-slot {
+    inset: clamp(0.38rem, 0.58vw, 0.5rem) clamp(0.36rem, 0.58vw, 0.5rem) clamp(0.34rem, 0.54vw, 0.46rem);
+    z-index: 4;
+    border: 1px solid rgba(255, 255, 255, 0.035);
+    border-radius: clamp(0.46rem, 0.7vw, 0.62rem);
+    background:
+      radial-gradient(circle at 55% 28%, rgba(104, 130, 167, 0.16), transparent 44%),
+      #04060a;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.92),
+      0 0 34px rgba(105, 135, 176, 0.075),
+      inset 0 0 18px rgba(0, 0, 0, 0.48);
+  }
+
+  .bs-device-stage--hero .bs-device-screen-slot img {
+    opacity: 1;
+    filter: saturate(1.08) contrast(1.1) brightness(1.02);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__glass {
+    z-index: 8;
+    background:
+      linear-gradient(105deg, rgba(255, 255, 255, 0.078), transparent 12%, transparent 72%, rgba(255, 255, 255, 0.036)),
+      linear-gradient(72deg, transparent 12%, rgba(255, 255, 255, 0.018) 27%, transparent 43%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.026), transparent 28%);
+    opacity: 0.24;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__reflection {
+    z-index: 9;
+    width: 18%;
+    background: linear-gradient(104deg, transparent, rgba(217, 229, 249, 0.105), transparent);
+    filter: blur(0.5px);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__glow {
+    z-index: 2;
+    inset: 7% 8% 12%;
+    background:
+      radial-gradient(circle at 46% 42%, rgba(109, 137, 176, 0.15), transparent 52%),
+      radial-gradient(circle at 12% 80%, rgba(45, 82, 120, 0.14), transparent 43%);
+    filter: blur(18px);
+    opacity: 0.34;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__display-chin {
+    display: block;
+    right: 12%;
+    bottom: 0.24rem;
+    left: 12%;
+    z-index: 10;
+    height: 0.12rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    opacity: 0.72;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__hinge {
+    z-index: 3;
+    width: 80%;
+    height: clamp(0.54rem, 0.78vw, 0.72rem);
+    margin: -0.16rem auto -0.2rem;
+    overflow: visible;
+    border-radius: 0 0 999px 999px;
+    background:
+      linear-gradient(90deg, rgba(4, 6, 10, 0), rgba(174, 190, 218, 0.2) 14%, rgba(255, 255, 255, 0.1) 50%, rgba(174, 190, 218, 0.18) 86%, rgba(4, 6, 10, 0)),
+      linear-gradient(180deg, rgba(117, 128, 146, 0.88), rgba(28, 33, 42, 1) 54%, rgba(3, 5, 9, 1));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.17),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.88),
+      0 10px 24px rgba(0, 0, 0, 0.54);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__hinge::before,
+  .bs-device-stage--hero .bs-device-laptop__hinge::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__hinge::before {
+    top: -0.36rem;
+    right: 3%;
+    left: 3%;
+    height: 0.28rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.72) 15%, rgba(0, 0, 0, 0.86) 50%, rgba(0, 0, 0, 0.72) 85%, transparent);
+    filter: blur(0.5px);
+    opacity: 0.96;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__hinge::after {
+    top: 0.25rem;
+    right: 10%;
+    left: 10%;
+    height: 0.18rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(210, 225, 250, 0.16), rgba(255, 255, 255, 0.08), rgba(210, 225, 250, 0.14), transparent);
+    opacity: 0.76;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__hinge-cap {
+    top: 0;
+    width: 16%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.34), transparent);
+    opacity: 0.58;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__hinge-cap--left {
+    left: 5%;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__hinge-cap--right {
+    right: 5%;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__base {
+    width: 108%;
+    height: clamp(4.8rem, 7.35vw, 6.85rem);
+    margin: -0.02rem -4% 0;
+    border-color: rgba(224, 234, 250, 0.13);
+    border-radius: 0.34rem 0.34rem clamp(0.74rem, 1.2vw, 1.1rem) clamp(0.74rem, 1.2vw, 1.1rem);
+    clip-path: polygon(3.7% 0, 96.3% 0, 100% 100%, 0 100%);
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.24), transparent 32%),
+      radial-gradient(ellipse at 50% 78%, rgba(255, 255, 255, 0.055), transparent 34%),
+      linear-gradient(94deg, rgba(6, 8, 13, 0.88), transparent 17%, transparent 83%, rgba(5, 7, 12, 0.92)),
+      linear-gradient(180deg, rgba(138, 149, 166, 0.9), rgba(46, 52, 62, 0.98) 44%, var(--bs-device-hero-metal-dark) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+      inset 0 -1.2rem 2.2rem rgba(0, 0, 0, 0.66),
+      0 44px 82px -54px rgba(0, 0, 0, 0.98);
+    transform: perspective(1180px) rotateX(63deg);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__base::before,
+  .bs-device-stage--hero .bs-device-laptop__base::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__base::before {
+    top: 0.08rem;
+    right: 8%;
+    left: 8%;
+    height: 0.22rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.14), transparent);
+    opacity: 0.68;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__base::after {
+    right: 4%;
+    bottom: 0.34rem;
+    left: 4%;
+    height: 0.44rem;
+    border-radius: 999px;
+    background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.46), transparent 72%);
+    filter: blur(3px);
+    opacity: 0.78;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__base-surface {
+    display: block;
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.055), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.035)),
+      radial-gradient(ellipse at 50% 8%, rgba(220, 231, 250, 0.11), transparent 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 52%);
+    opacity: 0.68;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__speaker {
+    display: block;
+    top: 12%;
+    width: 13.5%;
+    height: 36%;
+    border-radius: 0.45rem;
+    background-image: radial-gradient(circle, rgba(215, 228, 250, 0.18) 0 0.048rem, transparent 0.06rem);
+    background-size: 0.35rem 0.35rem;
+    opacity: 0.3;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__speaker--left {
+    left: 12%;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__speaker--right {
+    right: 12%;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__keyboard-plane {
+    top: 10%;
+    left: 28%;
+    width: 44%;
+    height: 34%;
+    border: 1px solid rgba(255, 255, 255, 0.064);
+    border-radius: 0.58rem;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 0.66rem, rgba(232, 240, 255, 0.13) 0.69rem 0.72rem),
+      repeating-linear-gradient(0deg, transparent 0 0.45rem, rgba(0, 0, 0, 0.24) 0.48rem 0.53rem),
+      radial-gradient(ellipse at 50% 8%, rgba(255, 255, 255, 0.14), transparent 42%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.088), rgba(0, 0, 0, 0.22));
+    background-size: auto;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.38),
+      0 8px 20px -18px rgba(0, 0, 0, 0.92);
+    opacity: 0.36;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__trackpad {
+    right: auto;
+    bottom: 13%;
+    left: 50%;
+    width: 24%;
+    height: 30%;
+    border-color: rgba(226, 236, 252, 0.24);
+    border-radius: 0.62rem;
+    background:
+      radial-gradient(ellipse at 50% 6%, rgba(255, 255, 255, 0.12), transparent 45%),
+      rgba(255, 255, 255, 0.034);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+      0 12px 26px -22px rgba(0, 0, 0, 0.9);
+    transform: translateX(-50%);
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__base-edge {
+    display: block;
+    right: 4%;
+    bottom: 8%;
+    left: 4%;
+    height: 0.08rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+    opacity: 0.42;
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__front-lip {
+    height: 24%;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.16), transparent 34%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.064), rgba(0, 0, 0, 0.48));
+  }
+
+  .bs-device-stage--hero .bs-device-laptop__shadow {
+    bottom: -16%;
+    height: 34%;
+    background:
+      radial-gradient(ellipse at center, rgba(0, 0, 0, 0.82), transparent 68%),
+      radial-gradient(ellipse at 50% 18%, rgba(96, 118, 154, 0.14), transparent 46%);
+    filter: blur(31px);
+    opacity: 0.86;
+  }
+
+  @media (max-width: 1500px) {
+    .bs-device-stage--hero .bs-device-laptop {
+      width: min(104%, 960px);
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__base {
+      width: 104%;
+      margin-inline: -2%;
+    }
+  }
+
+  @keyframes bs-device-float {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) rotateX(0deg);
+    }
+
+    50% {
+      transform: translate3d(0, -9px, 0) rotateX(0.45deg);
+    }
+  }
+
+  @keyframes bs-device-glow {
+    0%,
+    100% {
+      opacity: 0.38;
+      transform: scale(0.98);
+    }
+
+    50% {
+      opacity: 0.58;
+      transform: scale(1.02);
+    }
+  }
+
+  @keyframes bs-device-sweep {
+    0%,
+    42% {
+      opacity: 0;
+      transform: translateX(-130%) skewX(-16deg);
+    }
+
+    56% {
+      opacity: 0.24;
+    }
+
+    78%,
+    100% {
+      opacity: 0;
+      transform: translateX(330%) skewX(-16deg);
+    }
+  }
+
+  @keyframes bs-device-open-settle {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 24px, 0) rotateX(8deg) scale(0.96);
+    }
+
+    72% {
+      opacity: 1;
+      transform: translate3d(0, -3px, 0) rotateX(-0.75deg) scale(1.01);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .bs-device-stage {
+      min-height: clamp(19rem, 64vw, 28rem);
+    }
+
+    .bs-device-stage--hero {
+      min-height: clamp(20rem, 70vw, 31rem);
+    }
+
+    .bs-device-laptop {
+      width: min(100%, 660px);
+    }
+
+    .bs-device-laptop__base {
+      height: clamp(2.8rem, 9vw, 4.7rem);
+    }
+
+    .bs-device-stage--hero .bs-device-laptop {
+      width: min(94vw, 660px);
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__screen-shell {
+      border-radius: clamp(0.92rem, 3.2vw, 1.25rem);
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__screen-shell::after {
+      border-radius: clamp(0.78rem, 2.8vw, 1.05rem);
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__base {
+      width: 102%;
+      height: clamp(2.8rem, 8vw, 4.2rem);
+      margin-inline: -1%;
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__speaker {
+      opacity: 0.18;
+    }
+
+    .bs-device-companion {
+      display: none;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .bs-device-stage {
+      min-height: 17rem;
+    }
+
+    .bs-device-stage--hero {
+      min-height: 18rem;
+    }
+
+    .bs-device-laptop {
+      width: min(88vw, 340px);
+    }
+
+    .bs-device-laptop__screen-shell {
+      border-radius: 0.92rem;
+    }
+
+    .bs-device-laptop__bezel {
+      inset: 0.38rem;
+      border-radius: 0.58rem;
+    }
+
+    .bs-device-screen-slot {
+      inset: 0.24rem;
+      border-radius: 0.42rem;
+    }
+
+    .bs-device-laptop__base {
+      height: 2.75rem;
+      width: 104%;
+      margin-inline: -2%;
+      margin-top: -0.08rem;
+    }
+
+    .bs-device-laptop__keyboard-plane {
+      opacity: 0.18;
+    }
+
+    .bs-device-stage--hero .bs-device-laptop {
+      width: min(92vw, 360px);
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__bezel {
+      inset: 0.42rem;
+      border-radius: 0.58rem;
+    }
+
+    .bs-device-stage--hero .bs-device-screen-slot {
+      inset: 0.34rem 0.28rem 0.28rem;
+      border-radius: 0.42rem;
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__notch {
+      top: 0.34rem;
+      width: 2.42rem;
+      height: 0.46rem;
+      border-radius: 0 0 0.42rem 0.42rem;
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__base {
+      width: 100%;
+      height: 2.46rem;
+      margin-inline: 0;
+    }
+
+    .bs-device-stage--hero .bs-device-laptop__speaker,
+    .bs-device-stage--hero .bs-device-laptop__keyboard-plane {
+      opacity: 0.12;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bs-device-laptop,
+    .bs-device-laptop__glow,
+    .bs-device-laptop__reflection,
+    .bs-device-companion {
+      animation: none !important;
+      transform: none !important;
+    }
+  }
+}

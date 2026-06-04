@@ -115,7 +115,7 @@ function Badge({ children }: { children: string }) {
 }
 
 function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`co-workspace-panel min-h-0 ${className}`}>{children}</section>;
+  return <section className={`co-workspace-panel ${className}`}>{children}</section>;
 }
 
 function formatFileSize(bytes: number) {
@@ -533,6 +533,7 @@ export default function MediaConverter() {
   const importHandoffPayload = async (payload: MediaConverterHandoffPayload) => {
     const files: File[] = [];
     let failedCount = 0;
+    const packTitle = payload.packTitle || "Export Pack";
 
     for (const item of payload.items.slice(0, MAX_FILES)) {
       try {
@@ -554,20 +555,20 @@ export default function MediaConverter() {
       const handoffPreset = payload.presetId ? presets.find((preset) => preset.id === payload.presetId) : undefined;
       if (handoffPreset) setSelectedPresetId(handoffPreset.id);
       addFiles(files, handoffPreset);
-      setHandoffSourceLabel(payload.packTitle);
+      setHandoffSourceLabel(packTitle);
       setHandoffMessage(
         failedCount
-          ? "Some Week Pack images could not be loaded. You can add files manually."
-          : "Week Pack images added to local queue.",
+          ? `Some ${packTitle} images could not be loaded. You can add files manually.`
+          : `${packTitle} images added to local queue.`,
       );
       if (failedCount) {
-        setWarnings((items) => uniqueStrings([...items, "Some Week Pack images could not be loaded."]));
+        setWarnings((items) => uniqueStrings([...items, `Some ${packTitle} images could not be loaded.`]));
       }
       clearMediaConverterHandoff();
       return;
     }
 
-    setHandoffMessage("No Week Pack handoff found. Add images manually.");
+    setHandoffMessage(`No ${packTitle} handoff found. Add images manually.`);
   };
 
   useEffect(() => {
@@ -583,11 +584,12 @@ export default function MediaConverter() {
       return;
     }
 
-    setHandoffSourceLabel(payload.packTitle);
-    setHandoffMessage("Final Export images were sent from Week Pack 01.");
+    const packTitle = payload.packTitle || "Export Pack";
+    setHandoffSourceLabel(packTitle);
+    setHandoffMessage(`Final Export images were sent from ${packTitle}.`);
 
     if (queueRef.current.length) {
-      setHandoffMessage("Week Pack handoff is ready. Clear the queue before importing another pack.");
+      setHandoffMessage(`${packTitle} handoff is ready. Clear the queue before importing another pack.`);
       return;
     }
 
@@ -869,35 +871,44 @@ export default function MediaConverter() {
 
   return (
     <div className="co-workspace-page co-scene co-asset-field">
-      <div className="co-scrollbar grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 overflow-y-auto pr-1 lg:overflow-hidden">
-        <header className="co-scene-header flex min-w-0 flex-wrap items-end justify-between gap-3">
+      <div className="co-media-converter-shell co-scrollbar grid min-h-0 w-full flex-1 grid-rows-[auto_auto_auto] gap-3 overflow-y-auto px-1 pr-1 lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:overflow-hidden">
+        <header className="co-scene-header flex min-w-0 flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Media Tools</div>
-            <h1 className="mt-1 text-[clamp(1.9rem,3.6vw,3.7rem)] font-semibold leading-[0.94] tracking-[-0.05em] text-[color:var(--co-text)]">
+            <h1 className="mt-1 text-[clamp(1.9rem,2.9vw,3.2rem)] font-semibold leading-[0.96] tracking-[-0.045em] text-[color:var(--co-text)]">
               Media Converter
             </h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium text-[color:var(--co-text)] sm:text-base">
+            <p className="mt-2 max-w-2xl text-sm font-medium text-[color:var(--co-text)]">
               Prepare images before they enter your Week Pack.
             </p>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
-              Convert, resize, and prepare images locally. Files stay on your device.
+            <p className="mt-1 max-w-2xl text-sm leading-5 text-[color:var(--co-muted)]">
+              Convert, resize, and prepare images locally.
             </p>
           </div>
 
-          <div className="flex min-w-0 flex-wrap gap-2">
-            <Badge>Local-first</Badge>
-            <Badge>JPG / PNG / WebP</Badge>
-            {handoffSourceLabel ? <Badge>{handoffSourceLabel}</Badge> : null}
-            <Badge>No upload</Badge>
+          <div className="flex min-w-0 flex-col items-start gap-2 lg:items-end">
+            <Link
+              to="/prototype/library"
+              className="rounded-full bg-[color:var(--co-text)] px-5 py-2.5 text-sm font-medium text-[color:var(--co-bg)] pressable"
+            >
+              Back to workspace
+            </Link>
+            <div className="flex min-w-0 flex-wrap gap-2">
+              <Badge>Local-first</Badge>
+              <Badge>JPG / PNG / WebP</Badge>
+              {handoffSourceLabel ? <Badge>{handoffSourceLabel}</Badge> : null}
+            </div>
           </div>
         </header>
 
-        <div className="grid min-h-0 min-w-0 items-start gap-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-          <div className="grid min-h-0 min-w-0 gap-2">
-            {handoffMessage ? (
-              <div className="co-shell-strip rounded-[1.1rem] px-4 py-3">
-                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Week Pack handoff</div>
-                <p className="mt-1 text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
+        <div className="co-media-converter-workbench mx-auto grid w-full max-w-[1580px] min-w-0 items-start gap-3 lg:h-full lg:min-h-0 lg:items-stretch lg:grid-cols-[minmax(620px,1.02fr)_minmax(390px,0.74fr)]">
+          <div className="grid min-w-0 gap-2 lg:min-h-0 lg:grid-rows-[auto_auto_minmax(0,1fr)]">
+              {handoffMessage ? (
+                <div className="co-shell-strip rounded-[1rem] px-4 py-2.5">
+                <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">
+                  {handoffSourceLabel ? `${handoffSourceLabel} handoff` : "Export handoff"}
+                </div>
+                <p className="mt-1 text-sm leading-5 text-[color:var(--co-muted)]">
                   {handoffMessage} Choose a preset, convert locally, then download the converted files.
                 </p>
               </div>
@@ -905,7 +916,7 @@ export default function MediaConverter() {
             <Panel className="!h-auto !p-3">
               <div
                 className={[
-                  "relative flex min-h-[12.5rem] min-w-0 flex-col justify-between gap-3 rounded-[1.05rem] border border-dashed bg-[color:var(--co-surface)]/35 p-4 sm:min-h-[13.5rem]",
+                  "relative flex min-h-[9.5rem] min-w-0 flex-col justify-between gap-3 rounded-[1rem] border border-dashed bg-[color:var(--co-surface)]/35 p-4 sm:min-h-[10.75rem] lg:flex-row lg:items-center",
                   isDragging ? "border-[color:var(--co-text)]/45 bg-[color:var(--co-surface-active)]" : "border-[color:var(--co-border-soft)]",
                 ].join(" ")}
                 onDragEnter={onDragEnter}
@@ -926,20 +937,20 @@ export default function MediaConverter() {
                   }}
                 />
 
-                <div className="max-w-xl">
+                <div className="max-w-lg">
                   <div className="co-layer-label text-[11px] text-[color:var(--co-muted)]">Local intake</div>
-                  <div className="mt-3 text-[clamp(1.5rem,2.8vw,2.5rem)] font-semibold leading-[0.98] tracking-[-0.045em] text-[color:var(--co-text)]">
+                  <div className="mt-2 text-[clamp(1.45rem,2.1vw,2rem)] font-semibold leading-[0.98] tracking-[-0.04em] text-[color:var(--co-text)]">
                     {isDragging ? "Release to add images" : "Drop images here"}
                   </div>
-                  <p className="mt-2 text-sm text-[color:var(--co-muted)] sm:text-base">
+                  <p className="mt-1.5 text-sm text-[color:var(--co-muted)]">
                     or choose JPG, PNG, and WebP files from your computer.
                   </p>
-                  <p className="mt-2 max-w-md text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
+                  <p className="mt-1.5 max-w-md text-sm leading-5 text-[color:var(--co-muted)]">
                     Files stay on your device. Canvas conversion runs locally in this browser.
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 lg:max-w-[25rem] lg:justify-end">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -960,20 +971,6 @@ export default function MediaConverter() {
                   >
                     {convertQueueLabel}
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleDownloadZip}
-                    disabled={!hasConvertedItems || isCreatingZip}
-                    className={[
-                      "rounded-full px-4 py-2 text-sm font-medium pressable",
-                      allValidConverted
-                        ? "bg-[color:var(--co-text)] text-[color:var(--co-bg)]"
-                        : "border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-text)]",
-                      !hasConvertedItems || isCreatingZip ? "cursor-not-allowed opacity-55" : "hover:bg-[color:var(--co-surface-active)]",
-                    ].join(" ")}
-                  >
-                    {isCreatingZip ? "Creating ZIP..." : "Download ZIP"}
-                  </button>
                   {hasConvertedOutputs ? (
                     <button
                       type="button"
@@ -993,17 +990,17 @@ export default function MediaConverter() {
                       Clear queue
                     </button>
                   ) : null}
-                  <span className="text-xs leading-5 text-[color:var(--co-muted)]">
+                  <span className="text-sm leading-5 text-[color:var(--co-muted)] lg:basis-full lg:text-right">
                     {queue.length}/{MAX_FILES} local files
                   </span>
                   {zipError ? (
-                    <span className="text-xs leading-5 text-[color:var(--co-muted)]">{zipError}</span>
+                    <span className="text-sm leading-5 text-[color:var(--co-muted)] lg:basis-full lg:text-right">{zipError}</span>
                   ) : hasConvertedItems && !allValidConverted ? (
-                    <span className="text-xs leading-5 text-[color:var(--co-muted)]">
+                    <span className="text-sm leading-5 text-[color:var(--co-muted)] lg:basis-full lg:text-right">
                       ZIP includes converted files only.
                     </span>
                   ) : !hasConvertedItems && queue.length ? (
-                    <span className="text-xs leading-5 text-[color:var(--co-muted)]">
+                    <span className="text-sm leading-5 text-[color:var(--co-muted)] lg:basis-full lg:text-right">
                       ZIP export appears after conversion.
                     </span>
                   ) : null}
@@ -1011,17 +1008,17 @@ export default function MediaConverter() {
               </div>
             </Panel>
 
-            <Panel className="!h-auto !p-3">
-              <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
-                <div>
-                  <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">
-                    {handoffSourceLabel ? "Local queue - Week Pack source" : "Conversion queue"}
-                  </div>
+            <Panel className="co-media-converter-queue-panel !h-auto !p-3 lg:!flex lg:!h-full lg:min-h-0 lg:flex-col">
+              <div className="flex min-w-0 shrink-0 flex-wrap items-end justify-between gap-2">
+                  <div>
+                    <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">
+                    {handoffSourceLabel ? `Local queue - ${handoffSourceLabel} source` : "Conversion queue"}
+                    </div>
                   <h2 className="mt-1 text-lg font-semibold tracking-[-0.035em] text-[color:var(--co-text)]">
                     {queue.length ? "Local conversion queue" : "No files added yet."}
                   </h2>
                 </div>
-                <span className="text-xs text-[color:var(--co-muted)]">
+                <span className="text-sm text-[color:var(--co-muted)]">
                   {queue.length
                     ? queueSummary
                     : "Add JPG, PNG, or WebP images to prepare a local conversion queue."}
@@ -1029,7 +1026,7 @@ export default function MediaConverter() {
               </div>
 
               {warnings.length ? (
-                <div className="mt-2 rounded-[0.9rem] border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/55 px-3 py-2 text-xs leading-5 text-[color:var(--co-muted)]">
+                <div className="mt-2 rounded-[0.9rem] border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/55 px-3 py-2 text-sm leading-5 text-[color:var(--co-muted)]">
                   <div className="font-medium text-[color:var(--co-text)]">Some files were not added.</div>
                   {warnings.map((warning) => (
                     <div key={warning}>{warning}</div>
@@ -1037,7 +1034,7 @@ export default function MediaConverter() {
                 </div>
               ) : null}
 
-              <div className="mt-2 grid max-h-[18rem] gap-1.5 overflow-y-auto pr-1">
+              <div className="co-media-converter-queue-list co-scrollbar mt-2 grid max-h-[55vh] gap-1.5 overflow-y-auto pr-1 lg:min-h-0 lg:max-h-none lg:flex-1">
                 {queue.length ? (
                   queue.map((item) => {
                     const preset = presets.find((entry) => entry.id === item.presetId) ?? selectedPreset;
@@ -1055,20 +1052,20 @@ export default function MediaConverter() {
                         />
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-[color:var(--co-text)]">{item.name}</div>
-                          <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+                          <div className="mt-0.5 text-xs text-[color:var(--co-muted)]">
                             {item.formatLabel} - {dimensions} - {item.sizeLabel}
                           </div>
-                          <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+                          <div className="mt-0.5 text-xs text-[color:var(--co-muted)]">
                             {preset.title} - {item.formatLabel} -&gt; {item.targetFormat}
                           </div>
                           {item.conversionStatus === "converted" && item.convertedSizeLabel ? (
-                            <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+                            <div className="mt-0.5 text-xs text-[color:var(--co-muted)]">
                               {item.conversionMessage} - {item.convertedSizeLabel}
                               {item.convertedSizeDeltaLabel ? ` - ${item.convertedSizeDeltaLabel}` : ""}
                             </div>
                           ) : null}
                           {item.conversionStatus === "failed" && item.conversionMessage ? (
-                            <div className="mt-0.5 text-[11px] text-[color:var(--co-muted)]">
+                            <div className="mt-0.5 text-xs text-[color:var(--co-muted)]">
                               {item.conversionMessage}
                             </div>
                           ) : null}
@@ -1117,12 +1114,12 @@ export default function MediaConverter() {
             </Panel>
           </div>
 
-          <aside className="grid min-h-0 min-w-0 gap-2">
+          <aside className="grid min-w-0 gap-2 lg:content-start">
             <Panel className="!h-auto !p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Conversion plan</div>
-                  <h2 className="mt-2 text-xl font-semibold tracking-[-0.035em] text-[color:var(--co-text)]">
+                  <h2 className="mt-1.5 text-lg font-semibold tracking-[-0.035em] text-[color:var(--co-text)]">
                     Choose result
                   </h2>
                 </div>
@@ -1133,14 +1130,14 @@ export default function MediaConverter() {
 
               <div className="mt-2 divide-y divide-[color:var(--co-border-soft)]">
                 {plan.map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-4 py-1.5 first:pt-0">
+                  <div key={label} className="flex items-center justify-between gap-4 py-[0.3125rem] first:pt-0">
                     <span className="text-sm text-[color:var(--co-muted)]">{label}</span>
-                    <span className="text-sm font-medium text-[color:var(--co-text)]">{value}</span>
+                    <span className="text-right text-sm font-medium text-[color:var(--co-text)]">{value}</span>
                   </div>
                 ))}
               </div>
               {selectedFormatWarning ? (
-                <div className="mt-2 rounded-[0.85rem] border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/45 px-3 py-2 text-xs leading-5 text-[color:var(--co-muted)]">
+                <div className="mt-2 rounded-[0.85rem] border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/45 px-3 py-2 text-sm leading-5 text-[color:var(--co-muted)]">
                   {selectedFormatWarning}
                 </div>
               ) : null}
@@ -1157,7 +1154,7 @@ export default function MediaConverter() {
                       type="button"
                       onClick={() => updatePreset(preset.id)}
                       className={[
-                        "rounded-[0.85rem] border px-3 py-1.5 text-left transition pressable",
+                        "rounded-[0.8rem] border px-3 py-2 text-left transition pressable",
                         active
                           ? "border-[color:var(--co-text)]/35 bg-[color:var(--co-surface-active)]"
                           : "border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)]/45 hover:bg-[color:var(--co-surface-active)]",
@@ -1165,7 +1162,7 @@ export default function MediaConverter() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="text-sm font-medium text-[color:var(--co-text)]">{preset.title}</div>
-                        <div className="text-[11px] text-[color:var(--co-muted)]">{preset.targetFormat}</div>
+                        <div className="text-xs text-[color:var(--co-muted)]">{preset.targetFormat}</div>
                       </div>
                       <div className="mt-1 text-xs leading-4 text-[color:var(--co-muted)]">{preset.description}</div>
                     </button>
@@ -1176,28 +1173,32 @@ export default function MediaConverter() {
           </aside>
         </div>
 
-        <section className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="co-shell-strip rounded-[1.1rem] px-4 py-3">
+        <section className="co-media-converter-footer mx-auto mt-10 grid w-full max-w-[1580px] min-w-0 gap-3 lg:mt-0 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="co-shell-strip rounded-[1rem] px-4 py-2.5">
             <div className="co-layer-label text-[10px] text-[color:var(--co-muted)]">Local-first by design</div>
-            <p className="mt-1 max-w-3xl text-xs leading-5 text-[color:var(--co-muted)] sm:text-sm">
+            <p className="mt-1 max-w-3xl text-sm leading-5 text-[color:var(--co-muted)]">
               Files are added, converted, and packed locally in your browser. Nothing is uploaded for this conversion step.
-              {handoffSourceLabel ? " Week Pack images are loaded into the local queue; conversion still happens in your browser." : ""}
+              {handoffSourceLabel
+                ? ` ${handoffSourceLabel} images are loaded into the local queue; conversion still happens in your browser.`
+                : ""}
             </p>
           </div>
 
-          <div className="co-shell-strip flex flex-wrap items-center gap-3 rounded-[1.1rem] px-4 py-3 lg:justify-end">
-            <Link
-              to="/prototype/library"
-              className="rounded-full bg-[color:var(--co-text)] px-5 py-2.5 text-sm font-medium text-[color:var(--co-bg)] pressable"
+          <div className="co-shell-strip flex flex-wrap items-center gap-3 rounded-[1rem] px-4 py-2.5 lg:justify-end">
+            <button
+              type="button"
+              onClick={handleDownloadZip}
+              disabled={!hasConvertedItems || isCreatingZip}
+              className={[
+                "rounded-full px-5 py-2.5 text-sm font-medium pressable",
+                allValidConverted
+                  ? "bg-[color:var(--co-text)] text-[color:var(--co-bg)]"
+                  : "border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] text-[color:var(--co-text)]",
+                !hasConvertedItems || isCreatingZip ? "cursor-not-allowed opacity-55" : "hover:bg-[color:var(--co-surface-active)]",
+              ].join(" ")}
             >
-              Back to workspace
-            </Link>
-            <Link
-              to="/prototype/bio-builder"
-              className="rounded-full border border-[color:var(--co-border-soft)] bg-[color:var(--co-surface)] px-5 py-2.5 text-sm text-[color:var(--co-text)] hover:bg-[color:var(--co-surface-active)] pressable"
-            >
-              Open Profile Handoff
-            </Link>
+              {isCreatingZip ? "Creating ZIP..." : "Download ZIP"}
+            </button>
           </div>
         </section>
       </div>

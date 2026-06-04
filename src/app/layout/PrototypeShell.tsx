@@ -5,10 +5,13 @@ import { AnimatePresence, motion } from "motion/react";
 
 import Stepper from "../../components/prototype/Stepper";
 import ReadoutRail from "../../components/prototype/ReadoutRail";
+import { useWorkspaceFocusMode } from "../../hooks/useWorkspaceFocusMode";
+import { WorkspaceFocusBar } from "./WorkspaceFocusBar";
 
 export default function PrototypeShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isFocusMode, toggleFocusMode, exitFocusMode } = useWorkspaceFocusMode();
 
   useEffect(() => {
     if (location.pathname === "/prototype" || location.pathname === "/prototype/") {
@@ -17,8 +20,17 @@ export default function PrototypeShell() {
   }, [location.pathname, navigate]);
 
   return (
-    <div className="proto-theme co-os-root h-dvh overflow-hidden bg-[color:var(--co-bg)] text-[color:var(--co-text)]">
+    <div
+      className={[
+        "proto-theme co-os-root h-dvh overflow-hidden bg-[color:var(--co-bg)] text-[color:var(--co-text)]",
+        isFocusMode ? "co-focus-mode" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-focus-mode={isFocusMode ? "true" : "false"}
+    >
       <div className="co-os-atmosphere" aria-hidden="true" />
+      <WorkspaceFocusBar isFocusMode={isFocusMode} onExit={exitFocusMode} />
 
       <div className="co-os-stage">
         {/* Top bar */}
@@ -38,8 +50,19 @@ export default function PrototypeShell() {
             </div>
           </div>
 
-          <div className="co-stepper-track w-full min-w-0 rounded-full p-1 md:w-auto">
-            <Stepper />
+          <div className="flex w-full min-w-0 items-center justify-end gap-2 md:w-auto">
+            <button
+              type="button"
+              className="co-focus-toggle"
+              onClick={toggleFocusMode}
+              aria-pressed={isFocusMode}
+            >
+              {isFocusMode ? "Exit Focus" : "Focus"}
+            </button>
+
+            <div className="co-stepper-track w-full min-w-0 rounded-full p-1 md:w-auto">
+              <Stepper />
+            </div>
           </div>
         </div>
 

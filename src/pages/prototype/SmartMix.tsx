@@ -1173,11 +1173,10 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
         </div>
       </div>
 
-      <div className="co-scrollbar grid min-h-0 min-w-0 flex-1 content-start gap-3 overflow-y-auto pr-1 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      <div className="co-smart-week-grid grid min-h-0 w-full flex-1 content-start gap-3 overflow-visible grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {visibleMixes.map((mix, mixIndex) => {
           const isBest = mix.id === visibleBestId;
           const isDimmed = Boolean(focusedVisibleMixId && !isBest);
-          const fit = fitLabel(mix.overallScore ?? mix.score);
 
           return (
             <div
@@ -1206,9 +1205,6 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--
                     )}
                   </div>
 
-                  <div className="mt-2 truncate text-[13px] font-medium text-[color:var(--co-text)]">
-                    {fit}
-                  </div>
                 </div>
 
                 <div className="ml-auto flex shrink-0 items-center gap-1.5">

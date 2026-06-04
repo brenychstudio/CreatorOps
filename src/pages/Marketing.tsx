@@ -1,7 +1,10 @@
 ﻿import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { CreatorOpsDeviceShowcase } from "../features/creatorops/CreatorOpsDeviceShowcase";
+import { AtmosphericBackdrop } from "../systems/atmospheric-backdrop";
 
-const SHELL = "mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8";
+const WIDE_SHELL = "mx-auto w-full max-w-[1520px] px-5 sm:px-6 lg:px-8";
 
 const THUMBS = [
   "/creatorops/thumbs/4x5/thumb-4x5-01.jpg",
@@ -16,6 +19,29 @@ const THUMBS = [
 ] as const;
 
 const EXTENDED_THUMBS = [...THUMBS, ...THUMBS] as const;
+
+const PHONE_HIGHLIGHT_LABELS = ["Week 1", "Mood", "Flow", "Week 2"] as const;
+
+const PRODUCT_EVIDENCE = [
+  {
+    title: "Smart Mix / rhythm",
+    label: "Workspace proof",
+    image: "/creatorops/marketing/hero/smart-mix.png",
+    copy: "A reusable product stage for Smart Mix, planning, export, review, and handoff proof.",
+  },
+  {
+    title: "Week Pack / Extended Pack",
+    label: "Capacity proof",
+    image: "/creatorops/marketing/hero/week-pack.png",
+    copy: "Show 9-post Week Packs and 18-post Extended Packs as real planning surfaces.",
+  },
+  {
+    title: "Output / review / profile",
+    label: "Delivery proof",
+    image: "/creatorops/marketing/hero/export-pack.png",
+    copy: "Carry the pack into export, client review, profile handoff, and format conversion.",
+  },
+] as const;
 
 const WORKFLOW = [
   ["Library", "Collect the strongest visual assets for the week."],
@@ -110,6 +136,10 @@ const FAQ = [
     q: "Is AI live?",
     a: "The caption endpoint is prepared for server-side AI. Until production keys are connected, fallback drafts keep the flow usable.",
   },
+  {
+    q: "Is the workspace mobile-first?",
+    a: "The current workspace is desktop-first. Public pages and review surfaces are responsive; full mobile workspace polish comes later.",
+  },
 ] as const;
 
 type WaitlistRole = "creator" | "studio" | "agency" | "investor";
@@ -194,6 +224,34 @@ function useReducedMotion() {
   return reducedMotion;
 }
 
+function useRevealOnScroll(reducedMotion: boolean) {
+  useEffect(() => {
+    const revealItems = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
+    if (!revealItems.length) return;
+
+    if (reducedMotion || !("IntersectionObserver" in window)) {
+      revealItems.forEach((item) => item.classList.add("is-visible"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      },
+      { rootMargin: "0px 0px -14% 0px", threshold: 0.16 }
+    );
+
+    revealItems.forEach((item) => observer.observe(item));
+
+    return () => observer.disconnect();
+  }, [reducedMotion]);
+}
+
 function scrollToSection(id: string, reducedMotion: boolean) {
   const target = document.getElementById(id);
   if (!target) return;
@@ -204,9 +262,13 @@ function scrollToSection(id: string, reducedMotion: boolean) {
 
 function LogoMark({ large = false }: { large?: boolean }) {
   return (
-    <div className={large ? "co2-mark co2-mark--large" : "co2-mark"} aria-hidden="true">
+    <div
+      className={large ? "co2-mark co2-mark--large" : "co2-mark"}
+      aria-hidden="true"
+      title="CreatorOps ordered Week 1 + Week 2 content mark"
+    >
       {Array.from({ length: 18 }).map((_, index) => (
-        <span key={index} style={{ animationDelay: `${index * 32}ms` }} />
+        <span key={index} className={index < 9 ? "is-week-one" : "is-week-two"} />
       ))}
     </div>
   );
@@ -234,33 +296,246 @@ function SectionHeader({
   );
 }
 
-function MiniGrid({ count, compact = false }: { count: 9 | 18; compact?: boolean }) {
-  const items = count === 18 ? EXTENDED_THUMBS : THUMBS;
-
+function WeekGrid({ items = THUMBS, offset = 0, compact = false }: { items?: readonly string[]; offset?: number; compact?: boolean }) {
   return (
     <div className={compact ? "co2-mini-grid co2-mini-grid--compact" : "co2-mini-grid"}>
-      {items.slice(0, count).map((src, index) => (
+      {items.slice(0, 9).map((src, index) => (
         <div className="co2-mini-tile" key={`${src}-${index}`}>
           <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
-          <span>{String(index + 1).padStart(2, "0")}</span>
+          <span>{String(offset + index + 1).padStart(2, "0")}</span>
         </div>
       ))}
     </div>
   );
 }
 
+function ExtendedWeekGrid({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={compact ? "co2-extended-week-grid co2-extended-week-grid--compact" : "co2-extended-week-grid"}>
+      <div className="co2-extended-week">
+        <div className="co2-extended-week__head">
+          <span>Week 1</span>
+          <em>Posts 01-09</em>
+        </div>
+        <WeekGrid items={EXTENDED_THUMBS.slice(0, 9)} compact offset={0} />
+      </div>
+
+      <div className="co2-extended-week">
+        <div className="co2-extended-week__head">
+          <span>Week 2</span>
+          <em>Posts 10-18</em>
+        </div>
+        <WeekGrid items={EXTENDED_THUMBS.slice(9, 18)} compact offset={9} />
+      </div>
+    </div>
+  );
+}
+
+function ExtendedPackPhonePreview() {
+  const phoneItems = EXTENDED_THUMBS.slice(0, 18);
+  const highlights = [phoneItems[0], phoneItems[4], phoneItems[8], phoneItems[13]].filter(Boolean);
+  const [surface, setSurface] = useState<"instagram" | "tiktok">("instagram");
+  const tiktokPlayCounts = ["8.2K", "12K", "6.4K", "9.8K", "7.1K", "10K", "5.6K", "11K", "4.9K"];
+
+  const renderTikTokProfileTile = (src: string, index: number) => (
+    <div className="co-planner-tiktok-profile-tile" key={`${src}-tiktok-${index}`}>
+      <img className="co-planner-tiktok-profile-tile-media" src={src} alt="" draggable={false} loading="lazy" decoding="async" />
+      <span className="co-planner-tiktok-profile-plays">
+        <span aria-hidden="true" />
+        {tiktokPlayCounts[index % tiktokPlayCounts.length]}
+      </span>
+    </div>
+  );
+
+  return (
+    <article className="co2-pack-card co2-pack-card--featured co2-pack-card--phone">
+      <div className="co2-pack-card__meta">
+        <span>18 posts</span>
+        <em>Week 1 + Week 2</em>
+      </div>
+
+      <div className="co2-pack-phone-head">
+        <div>
+          <h3>Extended Pack</h3>
+          <p>An 18-post planning horizon for two connected weeks before the pack leaves the workspace.</p>
+        </div>
+        <div className="co2-pack-surface-toggle" role="group" aria-label="Phone interface preview">
+          <button
+            type="button"
+            className={surface === "instagram" ? "is-active" : undefined}
+            onClick={() => setSurface("instagram")}
+            aria-pressed={surface === "instagram"}
+          >
+            Instagram
+          </button>
+          <button
+            type="button"
+            className={surface === "tiktok" ? "is-active" : undefined}
+            onClick={() => setSurface("tiktok")}
+            aria-pressed={surface === "tiktok"}
+          >
+            TikTok
+          </button>
+        </div>
+      </div>
+
+      <div className="co2-pack-phone-frame" aria-label={`Extended Pack ${surface} mobile preview`}>
+        <div className="co-iphone-shell co-planner-phone-shell co-extended-planner-phone-shell co2-pack-phone-shell">
+          <div className="co-iphone-island" aria-hidden="true" />
+          <div className="co-iphone-screen">
+            {surface === "instagram" ? (
+              <>
+                <div className="co2-pack-phone-topbar">
+                  <strong>creatorops</strong>
+                  <span aria-hidden="true">+</span>
+                </div>
+
+                <div className="co-planner-phone-body co2-pack-phone-body">
+                  <div className="co-planner-phone-profile">
+                    <div className="co-planner-phone-account">
+                      <div className="co-planner-phone-avatar">
+                        <img src={phoneItems[0]} alt="" loading="lazy" decoding="async" draggable={false} />
+                      </div>
+
+                      <div className="co-planner-phone-stats">
+                        <div>
+                          <strong>18</strong>
+                          <span>posts</span>
+                        </div>
+                        <div>
+                          <strong>12.4K</strong>
+                          <span>followers</span>
+                        </div>
+                        <div>
+                          <strong>321</strong>
+                          <span>following</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="co-planner-phone-actions">
+                      <button type="button" tabIndex={-1}>
+                        Follow
+                      </button>
+                      <button type="button" tabIndex={-1}>
+                        Message
+                      </button>
+                    </div>
+
+                    <div className="co-planner-phone-bio">
+                      <strong>CreatorOps</strong>
+                      <span>Calm weekly content systems.</span>
+                      <span>Week 1 + Week 2 ready for captions.</span>
+                      <a href="#packs" onClick={(event) => event.preventDefault()}>
+                        creatorops.studio/extended-pack
+                      </a>
+                    </div>
+
+                    <div className="co-planner-phone-highlights">
+                      {highlights.map((src, index) => (
+                        <div className="co-planner-phone-highlight" key={`${src}-highlight-${index}`}>
+                          <div className="co-planner-phone-highlight-thumb">
+                            <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
+                          </div>
+                          <span>{PHONE_HIGHLIGHT_LABELS[index]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="co-planner-phone-tabs" aria-hidden="true">
+                    <span>Posts</span>
+                    <span>Reels</span>
+                    <span>Tagged</span>
+                  </div>
+
+                  <div className="co-planner-phone-grid">
+                    {phoneItems.map((src, index) => (
+                      <div className="co-planner-phone-tile" key={`${src}-phone-${index}`}>
+                        <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="co-planner-tiktok-body">
+                <div className="co-planner-tiktok-scroll">
+                  <div className="co-planner-tiktok-appbar" aria-label="TikTok profile controls">
+                    <span className="co-planner-tiktok-icon co-planner-tiktok-icon--person" aria-hidden="true" />
+                    <div className="co-planner-tiktok-appbar-actions">
+                      <span className="co-planner-tiktok-icon co-planner-tiktok-icon--steps" aria-hidden="true" />
+                      <span className="co-planner-tiktok-icon co-planner-tiktok-icon--share" aria-hidden="true" />
+                      <span className="co-planner-tiktok-icon co-planner-tiktok-icon--menu" aria-hidden="true" />
+                    </div>
+                  </div>
+
+                  <div className="co-planner-tiktok-profile">
+                    <div className="co-planner-tiktok-profile-avatar">
+                      <img src={phoneItems[0]} alt="" draggable={false} loading="lazy" decoding="async" />
+                      <span aria-hidden="true">+</span>
+                    </div>
+                    <div className="co-planner-tiktok-name-row">
+                      <strong>CreatorOps</strong>
+                      <span>1</span>
+                      <button type="button" aria-label="Edit profile preview" tabIndex={-1} />
+                    </div>
+                    <div className="co-planner-tiktok-handle">@creatorops</div>
+                    <div className="co-planner-tiktok-profile-stats" aria-label="TikTok profile stats">
+                      <div>
+                        <b>321</b>
+                        <span>Following</span>
+                      </div>
+                      <div>
+                        <b>12.4K</b>
+                        <span>Followers</span>
+                      </div>
+                      <div>
+                        <b>84K</b>
+                        <span>Likes</span>
+                      </div>
+                    </div>
+                    <p>Calm weekly content systems. Extended Pack rhythm ready for captions.</p>
+                    <div className="co-planner-tiktok-studio">
+                      <span aria-hidden="true" />
+                      TikTok Studio
+                    </div>
+                    <a href="#packs" onClick={(event) => event.preventDefault()}>
+                      creatorops.studio/extended-pack
+                    </a>
+                  </div>
+
+                  <div className="co-planner-tiktok-profile-tabs">
+                    <span className="is-active" aria-label="Videos" />
+                    <span aria-label="Shop" />
+                    <span aria-label="Private" />
+                    <span aria-label="Saved" />
+                    <span aria-label="Liked" />
+                  </div>
+
+                  <div className="co-planner-tiktok-profile-grid">{phoneItems.map(renderTikTokProfileTile)}</div>
+                </div>
+
+                <div className="co-planner-tiktok-bottom-nav" aria-label="TikTok bottom navigation preview">
+                  <span>Home</span>
+                  <span>Friends</span>
+                  <strong>+</strong>
+                  <span>Inbox</span>
+                  <span className="is-active">Profile</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function HeroVisual() {
   return (
-    <div className="co2-hero-visual" aria-label="CreatorOps product preview">
-      <div className="co2-hero-visual__image">
-        <img
-          src="/creatorops/landing/bg-03-bridge.png"
-          alt="CreatorOps Smart Mix preview on a mobile product surface"
-          loading="eager"
-          decoding="async"
-          draggable={false}
-        />
-      </div>
+    <div className="co2-hero-visual" aria-label="CreatorOps desktop workspace preview">
+      <CreatorOpsDeviceShowcase variant="hero" motion="subtle-float" showCompanion={false} />
 
       <div className="co2-floating-card co2-floating-card--top">
         <span>Output</span>
@@ -277,50 +552,78 @@ function HeroVisual() {
   );
 }
 
-function ProductProof() {
-  return (
-    <div className="co2-proof-grid">
-      <div className="co2-proof-card co2-proof-card--wide">
-        <div className="co2-proof-card__head">
-          <div>
-            <span>Live workspace</span>
-            <strong>From selection to export</strong>
-          </div>
-          <em>current alpha</em>
-        </div>
+function ProductEvidence() {
+  const [activeEvidence, setActiveEvidence] = useState<(typeof PRODUCT_EVIDENCE)[number] | null>(null);
 
-        <div className="co2-proof-flow">
-          {["Library", "Smart Mix", "Planner", "Captions", "Export"].map((step, index) => (
-            <div key={step}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <strong>{step}</strong>
+  useEffect(() => {
+    if (!activeEvidence) return;
+
+    const previousOverflow = document.documentElement.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveEvidence(null);
+    };
+
+    document.documentElement.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.documentElement.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeEvidence]);
+
+  const lightbox =
+    activeEvidence && typeof document !== "undefined"
+      ? createPortal(
+          <div className="co2-lightbox" role="dialog" aria-modal="true" aria-label={`${activeEvidence.title} screenshot preview`}>
+            <button
+              type="button"
+              className="co2-lightbox__backdrop"
+              onClick={() => setActiveEvidence(null)}
+              aria-label="Close screenshot preview"
+            />
+            <div className="co2-lightbox__panel">
+              <div className="co2-lightbox__head">
+                <div>
+                  <span>{activeEvidence.label}</span>
+                  <strong>{activeEvidence.title}</strong>
+                </div>
+                <button type="button" onClick={() => setActiveEvidence(null)}>
+                  Close
+                </button>
+              </div>
+              <img src={activeEvidence.image} alt={`${activeEvidence.title} full screenshot`} draggable={false} />
             </div>
-          ))}
-        </div>
+          </div>,
+          document.body
+        )
+      : null;
+
+  return (
+    <>
+      <div className="co2-evidence-grid">
+        {PRODUCT_EVIDENCE.map((item) => (
+          <article key={item.title} className="co2-evidence-card">
+            <button
+              type="button"
+              className="co2-evidence-card__image"
+              onClick={() => setActiveEvidence(item)}
+              aria-label={`Open ${item.title} screenshot`}
+            >
+              <img src={item.image} alt={`${item.title} product evidence`} loading="lazy" decoding="async" draggable={false} />
+            </button>
+
+            <div className="co2-evidence-card__body">
+              <span>{item.label}</span>
+              <h3>{item.title}</h3>
+              <p>{item.copy}</p>
+            </div>
+          </article>
+        ))}
       </div>
 
-      <div className="co2-proof-card">
-        <div className="co2-proof-card__head">
-          <div>
-            <span>Week Pack</span>
-            <strong>9 posts</strong>
-          </div>
-          <em>3×3</em>
-        </div>
-        <MiniGrid count={9} compact />
-      </div>
-
-      <div className="co2-proof-card">
-        <div className="co2-proof-card__head">
-          <div>
-            <span>Extended Pack</span>
-            <strong>18 posts</strong>
-          </div>
-          <em>2 weeks</em>
-        </div>
-        <MiniGrid count={18} compact />
-      </div>
-    </div>
+      {lightbox}
+    </>
   );
 }
 
@@ -421,13 +724,14 @@ function WaitlistForm() {
 
 export default function Marketing() {
   const reducedMotion = useReducedMotion();
+  useRevealOnScroll(reducedMotion);
 
   return (
     <main className="co2-page">
-      <div className="co2-atmosphere" aria-hidden="true" />
+      <AtmosphericBackdrop variant="studio" intensity="medium" />
 
       <header className="co2-nav">
-        <div className={`${SHELL} co2-nav__inner`}>
+        <div className={`${WIDE_SHELL} co2-nav__inner`}>
           <button type="button" className="co2-nav__brand" onClick={() => scrollToSection("top", reducedMotion)}>
             <LogoMark />
             <span>CreatorOps</span>
@@ -449,26 +753,36 @@ export default function Marketing() {
         </div>
       </header>
 
-      <section id="top" className={`${SHELL} co2-hero`}>
+      <section id="top" className={`${WIDE_SHELL} co2-hero`}>
         <div className="co2-hero__copy">
-          <div className="co2-hero__signal">
+          <div className="co2-hero__signal co2-reveal co2-reveal-delay-1" data-reveal>
             <LogoMark large />
             <span>Export-first SaaS workspace</span>
           </div>
 
-          <h1>Turn scattered visuals into a ready-to-publish Week Pack.</h1>
+          <h1 className="co2-reveal co2-reveal-delay-2" data-reveal>
+            Turn scattered visuals into a ready-to-publish Week Pack.
+          </h1>
 
-          <p>
-            Smart Mix, Planner, Captions, Export, Client Review, and Profile Handoff — one calm workspace before
-            publishing.
+          <p className="co2-reveal co2-reveal-delay-3" data-reveal>
+            A desktop-first workspace for Smart Mix, planning, captions, export, client review, and profile handoff
+            before publishing.
           </p>
 
-          <div className="co2-actions">
-            <Link to="/prototype/library">Open workspace</Link>
-            <Link to="/story">View product story</Link>
+          <div className="co2-status-row co2-reveal co2-reveal-delay-4" data-reveal>
+            <span>Desktop workspace alpha</span>
+            <span>Responsive public review surfaces</span>
+            <span>Mobile workspace polish later</span>
           </div>
 
-          <div className="co2-pill-row">
+          <div className="co2-actions co2-reveal co2-reveal-delay-5" data-reveal>
+            <Link to="/prototype/library">Open workspace</Link>
+            <button type="button" disabled aria-disabled="true">
+              View product story
+            </button>
+          </div>
+
+          <div className="co2-pill-row co2-reveal co2-reveal-delay-6" data-reveal>
             <Pill>9-post Week Pack</Pill>
             <Pill>18-post Extended Pack</Pill>
             <Pill>ZIP + captions + CSV</Pill>
@@ -477,21 +791,31 @@ export default function Marketing() {
           </div>
         </div>
 
-        <HeroVisual />
+        <div className="co2-reveal co2-reveal-delay-4" data-reveal>
+          <HeroVisual />
+        </div>
       </section>
 
-      <section className={`${SHELL} co2-section co2-section--proof`}>
-        <ProductProof />
+      <section id="evidence" className={`${WIDE_SHELL} co2-section co2-section--evidence co2-reveal`} data-reveal>
+        <SectionHeader
+          eyebrow="Product evidence"
+          title="A real workspace, not another content calendar promise."
+          copy="CreatorOps already supports the export-first loop: selected visuals, Smart Mix, planning board, captions, ZIP export, and optional handoffs."
+        />
+
+        <div className="co2-reveal-group">
+          <ProductEvidence />
+        </div>
       </section>
 
-      <section id="workflow" className={`${SHELL} co2-section co2-split-section`}>
+      <section id="workflow" className={`${WIDE_SHELL} co2-section co2-split-section co2-reveal`} data-reveal>
         <SectionHeader
           eyebrow="Workflow"
           title="The product is the path from asset chaos to one clean output."
           copy="CreatorOps stays upstream of publishing. It does not try to become another noisy scheduler; it prepares the package that leaves the workspace."
         />
 
-        <div className="co2-workflow-list">
+        <div className="co2-workflow-list co2-reveal-group">
           {WORKFLOW.map(([title, text], index) => (
             <div key={title} className="co2-workflow-row">
               <span>{String(index + 1).padStart(2, "0")}</span>
@@ -504,50 +828,38 @@ export default function Marketing() {
         </div>
       </section>
 
-      <section id="packs" className={`${SHELL} co2-section`}>
+      <section id="packs" className={`${WIDE_SHELL} co2-section co2-reveal`} data-reveal>
         <SectionHeader
           eyebrow="Week Pack / Extended Pack"
           title="One-week focus or two-week horizon."
           copy="Extended Pack is not a bigger grid. It is the same calm workflow with more breathing room across Week 1 and Week 2."
         />
 
-        <div className="co2-pack-grid">
+        <div className="co2-pack-grid co2-reveal-group">
           <article className="co2-pack-card">
             <div className="co2-pack-card__meta">
               <span>9 posts</span>
-              <em>1-week pack</em>
+              <em>one-week focus</em>
             </div>
 
             <h3>Week Pack</h3>
-            <MiniGrid count={9} />
+            <WeekGrid />
 
-            <p>A focused 3×3 publishing pack for one week: visual rhythm, captions, ZIP export, and profile handoff.</p>
+            <p>A focused one-week pack: visual rhythm, captions, ZIP export, and profile handoff.</p>
           </article>
 
-          <article className="co2-pack-card co2-pack-card--featured">
-            <div className="co2-pack-card__meta">
-              <span>18 posts</span>
-              <em>2-week planning</em>
-            </div>
-
-            <h3>Extended Pack</h3>
-            <MiniGrid count={18} />
-
-            <p>
-              A calmer two-week planning horizon: Week 1 + Week 2, extended ZIP, client review, and format handoff.
-            </p>
-          </article>
+          <ExtendedPackPhonePreview />
         </div>
       </section>
 
-      <section id="outputs" className={`${SHELL} co2-section`}>
+      <section id="outputs" className={`${WIDE_SHELL} co2-section co2-reveal`} data-reveal>
         <SectionHeader
           eyebrow="Output layer"
           title="The result is not a screen. It is a deliverable."
           copy="Each output tool is optional. The core workflow remains simple: prepare the pack, download it, then use the handoff surface you need."
         />
 
-        <div className="co2-output-grid">
+        <div className="co2-output-grid co2-reveal-group">
           {OUTPUTS.map((item) => (
             <article key={item.title} className="co2-output-card">
               <span>{item.label}</span>
@@ -558,7 +870,7 @@ export default function Marketing() {
         </div>
       </section>
 
-      <section id="pricing" className={`${SHELL} co2-section`}>
+      <section id="pricing" className={`${WIDE_SHELL} co2-section co2-reveal`} data-reveal>
         <div className="co2-pricing-head">
           <SectionHeader
             eyebrow="Pricing preview"
@@ -567,7 +879,7 @@ export default function Marketing() {
           />
         </div>
 
-        <div className="co2-plan-grid">
+        <div className="co2-plan-grid co2-reveal-group">
           {PLANS.map((plan) => (
             <article key={plan.title} className={plan.featured ? "co2-plan-card co2-plan-card--featured" : "co2-plan-card"}>
               <div>
@@ -588,12 +900,12 @@ export default function Marketing() {
         </div>
       </section>
 
-      <section id="trust" className={`${SHELL} co2-section`}>
+      <section id="trust" className={`${WIDE_SHELL} co2-section co2-reveal`} data-reveal>
         <div className="co2-trust-card">
           <SectionHeader
             eyebrow="Trust / SaaS path"
             title="Built for a safer account-based product later."
-            copy="The current workspace keeps API secrets out of the browser and stays export-first. Supabase, Stripe, and official Instagram Graph API publishing belong to later product stages."
+            copy="The current workspace is desktop-first, keeps API secrets out of the browser, and stays export-first. Supabase, Stripe, and official Instagram Graph API publishing belong to later product stages."
           />
 
           <div className="co2-trust-list">
@@ -607,10 +919,10 @@ export default function Marketing() {
         </div>
       </section>
 
-      <section id="roadmap" className={`${SHELL} co2-section`}>
+      <section id="roadmap" className={`${WIDE_SHELL} co2-section co2-reveal`} data-reveal>
         <SectionHeader eyebrow="Roadmap" title="Now, next, later." />
 
-        <div className="co2-roadmap-grid">
+        <div className="co2-roadmap-grid co2-reveal-group">
           {ROADMAP.map((group) => (
             <article key={group.title} className="co2-roadmap-card">
               <h3>{group.title}</h3>
@@ -624,10 +936,10 @@ export default function Marketing() {
         </div>
       </section>
 
-      <section id="faq" className={`${SHELL} co2-section`}>
+      <section id="faq" className={`${WIDE_SHELL} co2-section co2-reveal`} data-reveal>
         <SectionHeader eyebrow="FAQ" title="Positioned clearly before backend." />
 
-        <div className="co2-faq-list">
+        <div className="co2-faq-list co2-reveal-group">
           {FAQ.map((item) => (
             <article key={item.q}>
               <h3>{item.q}</h3>
@@ -637,8 +949,8 @@ export default function Marketing() {
         </div>
       </section>
 
-      <section id="waitlist" className={`${SHELL} co2-section co2-waitlist-section`}>
-        <div>
+      <section id="waitlist" className={`${WIDE_SHELL} co2-section co2-waitlist-section co2-reveal`} data-reveal>
+        <div className="co2-waitlist-copy">
           <div className="co2-eyebrow">Next</div>
           <h2 className="co2-section-title mt-4">Join the account-based release.</h2>
           <p className="co2-section-copy mt-5">
@@ -649,10 +961,53 @@ export default function Marketing() {
         <WaitlistForm />
       </section>
 
-      <footer className={`${SHELL} co2-footer`}>
-        <span>CreatorOps</span>
-        <span>Export-first Week Pack workspace.</span>
-        <Link to="/prototype/library">Open workspace</Link>
+      <footer className={`${WIDE_SHELL} co2-footer co2-reveal`} data-reveal>
+        <div className="co2-footer__top">
+          <div className="co2-footer__brand">
+            <div className="co2-footer__mark">
+              <LogoMark />
+              <span>CreatorOps</span>
+            </div>
+            <p>Export-first Week Pack workspace for creators and small studios.</p>
+          </div>
+
+          <nav className="co2-footer__nav" aria-label="Footer navigation">
+            <div>
+              <span>Product</span>
+              <Link to="/prototype/library">Workspace</Link>
+              <Link to="/story">Story</Link>
+              <a href="#pricing">Pricing</a>
+              <a href="#roadmap">Roadmap</a>
+            </div>
+
+            <div>
+              <span>Status</span>
+              <p>Desktop workspace alpha</p>
+              <p>Export-first workflow</p>
+              <p>Instagram publishing V2 later</p>
+              <p>Supabase accounts planned</p>
+            </div>
+
+            <div>
+              <span>Access</span>
+              <Link className="co2-footer__cta" to="/prototype/library">
+                Open workspace
+              </Link>
+              <p className="co2-footer__planned">Privacy / Terms planned for SaaS release</p>
+              <p className="co2-footer__planned">Contact planned</p>
+            </div>
+          </nav>
+        </div>
+
+        <div className="co2-footer__bottom">
+          <span>
+            © 2026 CreatorOps /{" "}
+            <a href="https://brenychstudio.com/" target="_blank" rel="noreferrer">
+              Brenych Studio
+            </a>
+          </span>
+          <span>Export-first now. Account-based SaaS later.</span>
+        </div>
       </footer>
     </main>
   );

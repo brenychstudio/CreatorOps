@@ -125,14 +125,8 @@ export default function Library() {
   const feedAssets = useMemo(() => assets.filter((a) => a.ratio === "4:5"), [assets]);
   const feedAssetIds = useMemo(() => feedAssets.map((a) => a.id), [feedAssets]);
   const allFeedSelected = feedAssetIds.length > 0 && feedAssetIds.every((id) => selectedSet.has(id));
-  const availableAssetCount = feedAssets.length;
-  const hasEnoughAvailableAssets = availableAssetCount >= targetCount;
   const selectionStatusLabel = `${selectedCount} selected`;
   const targetStatusLabel = isComplete ? `${packMeta.shortLabel} ready` : `${remainingCount} more needed`;
-  const extendedAvailabilityLabel =
-    isExtended && !hasEnoughAvailableAssets
-      ? `${availableAssetCount} available - add uploads for 18-post planning`
-      : null;
   const largeFieldCardSize = getLargeFieldCardSize(feedAssets.length);
   const libraryGridStyle = isSpatialView
     ? undefined
@@ -515,7 +509,6 @@ export default function Library() {
           <div className="co-library-count-pill flex-1 sm:flex-none" title={`${packMeta.label}: ${packMeta.description}`}>
             <span>{selectionStatusLabel}</span>
             <span>{targetStatusLabel}</span>
-            {extendedAvailabilityLabel ? <span>{extendedAvailabilityLabel}</span> : null}
           </div>
 
           <button

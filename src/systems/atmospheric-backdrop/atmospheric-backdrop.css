@@ -1,0 +1,170 @@
+@layer components {
+  .bs-atmo {
+    --bs-atmo-ink: rgba(4, 7, 11, 0.98);
+    --bs-atmo-graphite: rgba(19, 24, 31, 0.74);
+    --bs-atmo-silver: rgba(206, 218, 236, 0.12);
+    --bs-atmo-signal: rgba(109, 139, 180, 0.16);
+    --bs-atmo-grid: rgba(255, 255, 255, 0.035);
+    --bs-atmo-strength: 1;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 74% 18%, rgba(82, 104, 135, 0.1), transparent 27rem),
+      linear-gradient(180deg, rgba(5, 7, 11, 0.74), rgba(4, 7, 11, 0.98));
+    pointer-events: none;
+  }
+
+  .bs-atmo--low {
+    --bs-atmo-strength: 0.68;
+  }
+
+  .bs-atmo--medium {
+    --bs-atmo-strength: 1;
+  }
+
+  .bs-atmo--high {
+    --bs-atmo-strength: 1.24;
+  }
+
+  .bs-atmo--studio {
+    --bs-atmo-graphite: rgba(18, 23, 30, 0.78);
+    --bs-atmo-silver: rgba(214, 226, 244, 0.13);
+    --bs-atmo-signal: rgba(105, 136, 178, 0.14);
+  }
+
+  .bs-atmo--museum {
+    --bs-atmo-graphite: rgba(22, 21, 24, 0.76);
+    --bs-atmo-silver: rgba(230, 224, 216, 0.11);
+    --bs-atmo-signal: rgba(164, 153, 132, 0.13);
+  }
+
+  .bs-atmo__field,
+  .bs-atmo__grid,
+  .bs-atmo__glow,
+  .bs-atmo__texture {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .bs-atmo__field {
+    background:
+      radial-gradient(ellipse at 30% 24%, rgba(255, 255, 255, calc(0.055 * var(--bs-atmo-strength))), transparent 28rem),
+      radial-gradient(ellipse at 70% 42%, var(--bs-atmo-signal), transparent 34rem),
+      radial-gradient(ellipse at 48% 94%, rgba(255, 255, 255, calc(0.018 * var(--bs-atmo-strength))), transparent 24rem),
+      linear-gradient(115deg, var(--bs-atmo-ink), var(--bs-atmo-graphite) 48%, var(--bs-atmo-ink));
+    opacity: 0.88;
+    animation: bs-atmo-drift 30s ease-in-out infinite alternate;
+  }
+
+  .bs-atmo__grid {
+    background-image:
+      linear-gradient(to right, var(--bs-atmo-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--bs-atmo-grid) 1px, transparent 1px);
+    background-position: center top;
+    background-size: 120px 120px;
+    mask-image: linear-gradient(to bottom, transparent, black 12%, black 84%, transparent);
+    opacity: calc(0.58 * var(--bs-atmo-strength));
+    animation: bs-atmo-grid-drift 36s ease-in-out infinite alternate;
+  }
+
+  .bs-atmo__glow {
+    --bs-atmo-glow-from: calc(0.4 * var(--bs-atmo-strength));
+    --bs-atmo-glow-to: calc(0.62 * var(--bs-atmo-strength));
+    border-radius: 999px;
+    filter: blur(48px);
+    opacity: var(--bs-atmo-glow-from);
+    transform: translateZ(0);
+    animation: bs-atmo-breathe 16s ease-in-out infinite alternate;
+  }
+
+  .bs-atmo__glow--hero {
+    --bs-atmo-glow-from: calc(0.45 * var(--bs-atmo-strength));
+    --bs-atmo-glow-to: calc(0.68 * var(--bs-atmo-strength));
+    inset: 13% 7% auto auto;
+    width: min(52vw, 50rem);
+    aspect-ratio: 1.35 / 1;
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(138, 162, 202, 0.2), transparent 68%),
+      radial-gradient(ellipse at 66% 32%, rgba(255, 255, 255, 0.07), transparent 48%);
+  }
+
+  .bs-atmo__glow--lower {
+    --bs-atmo-glow-from: calc(0.2 * var(--bs-atmo-strength));
+    --bs-atmo-glow-to: calc(0.34 * var(--bs-atmo-strength));
+    inset: auto auto -18% 18%;
+    width: min(54vw, 48rem);
+    aspect-ratio: 1.5 / 1;
+    background: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.07), transparent 70%);
+    animation-delay: -5s;
+  }
+
+  .bs-atmo__texture {
+    background:
+      radial-gradient(circle at 16% 28%, rgba(255, 255, 255, 0.026) 0 1px, transparent 1px),
+      radial-gradient(circle at 74% 44%, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px);
+    background-size: 41px 41px, 67px 67px;
+    mix-blend-mode: screen;
+    opacity: calc(0.24 * var(--bs-atmo-strength));
+  }
+
+  @keyframes bs-atmo-drift {
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    to {
+      transform: translate3d(-18px, 16px, 0) scale(1.025);
+    }
+  }
+
+  @keyframes bs-atmo-grid-drift {
+    from {
+      background-position: center top;
+    }
+
+    to {
+      background-position: calc(50% - 38px) 32px;
+    }
+  }
+
+  @keyframes bs-atmo-breathe {
+    from {
+      opacity: var(--bs-atmo-glow-from);
+      transform: translate3d(0, 0, 0) scale(0.98);
+    }
+
+    to {
+      opacity: var(--bs-atmo-glow-to);
+      transform: translate3d(10px, -8px, 0) scale(1.03);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .bs-atmo__grid {
+      background-size: 88px 88px;
+      opacity: calc(0.48 * var(--bs-atmo-strength));
+    }
+
+    .bs-atmo__glow--hero {
+      inset: 10% -24% auto auto;
+      width: 92vw;
+    }
+
+    .bs-atmo__glow--lower {
+      left: -18%;
+      width: 105vw;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bs-atmo *,
+    .bs-atmo {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+    }
+  }
+}
